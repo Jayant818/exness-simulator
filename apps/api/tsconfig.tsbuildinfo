@@ -1,0 +1,1 @@
+{"root":["./src/RedisManager.ts","./src/index.ts","./src/routes/balance.ts","./src/routes/candles.ts","./src/routes/orders.ts","./src/types/index.ts"],"version":"5.9.2"}
