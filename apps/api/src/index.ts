@@ -13,6 +13,10 @@ app.use("/api/balance", balanceRouter);
 app.use("/api/candles", candlesRouter);
 app.use("/api/orders", orderRouter);
 
+app.get("/", (req, res) => {
+  res.send("Http Server is running");
+});
+
 app.listen(3002, () => {
   console.log("API server running on http://localhost:3002");
 });

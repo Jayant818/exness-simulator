@@ -84,14 +84,14 @@ exports.up = (pgm) => {
 
   pgm.sql(`
     SELECT add_continuous_aggregate_policy('candles_1h', 
-      start_offset => INTERVAL '2 hours', 
+      start_offset => INTERVAL '3 hours', 
       end_offset => INTERVAL '30 minutes', 
       schedule_interval => INTERVAL '30 minutes');
   `);
 
   pgm.sql(`
     SELECT add_continuous_aggregate_policy('candles_1d', 
-      start_offset => INTERVAL '2 days', 
+      start_offset => INTERVAL '3 days', 
       end_offset => INTERVAL '1 hour', 
       schedule_interval => INTERVAL '1 hour');
   `);
