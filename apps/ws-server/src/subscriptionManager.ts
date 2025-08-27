@@ -1,5 +1,4 @@
 import { WebSocket as WsWebSocket } from "ws";
-import { User } from "./user";
 import { MARKET_TRADE_CHANNELS, SUPPORTED_MARKETS } from "./constants";
 import { createClient, RedisClientType } from "redis";
 import { UserManager } from "./userManager";
@@ -31,16 +30,20 @@ export class SubscriptionManager {
   }
 
   public handleSubscription(data: SubscriptionData, ws: WsWebSocket) {
+    let user = UserManager.getInstance().getUserFromWs(ws);
+
+    if (!user) {
+      ws.send(JSON.stringify({ error: "Please identify first." })); // <-- Add this
+      console.log("Subscription attempt by unidentified user.");
+      return;
+    }
+
     if (data.type === "SUBSCRIBE") {
       // check if the market is already subscribed by the server
       if (
         !this.reverseSubscriptions.has(data.market) &&
         data.market in SUPPORTED_MARKETS
       ) {
-        const user = UserManager.getInstance().getUserFromWs(ws);
-        if (!user) {
-          return;
-        }
         this.subscriptions.set(user, [data.market]);
         this.reverseSubscriptions.set(data.market, [user]);
         // Subscribe to the market
@@ -60,25 +63,25 @@ export class SubscriptionManager {
         });
       } else {
         // Market is already subscribed add the user to the list
-        this.subscriptions.set(User, [
-          ...(this.subscriptions.get(User) || []),
+        this.subscriptions.set(user, [
+          ...(this.subscriptions.get(user) || []),
           data.market,
         ]);
         this.reverseSubscriptions.set(data.market, [
           ...(this.reverseSubscriptions.get(data.market) || []),
-          User,
+          user,
         ]);
       }
     } else if (data.type === "UNSUBSCRIBE") {
       // Remove the user from the market if no users are left, unsubscribe from redis
-      const markets = this.subscriptions.get(User);
-      this.subscriptions.delete(User);
+      const markets = this.subscriptions.get(user);
+      this.subscriptions.delete(user);
 
       if (markets) {
         markets.forEach((market) => {
           let users = this.reverseSubscriptions.get(market);
           if (users) {
-            users = users.filter((user) => user != User);
+            users = users.filter((u) => u != user);
 
             this.reverseSubscriptions.set(market, users);
 
