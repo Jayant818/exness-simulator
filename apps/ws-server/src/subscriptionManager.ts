@@ -1,7 +1,8 @@
 import { WebSocket as WsWebSocket } from "ws";
 import { User } from "./user";
 import { MARKET_TRADE_CHANNELS, SUPPORTED_MARKETS } from "./constants";
-import { createClient } from "redis";
+import { createClient, RedisClientType } from "redis";
+import { UserManager } from "./userManager";
 
 interface SubscriptionData {
   type: "SUBSCRIBE" | "UNSUBSCRIBE";
@@ -10,10 +11,17 @@ interface SubscriptionData {
 
 export class SubscriptionManager {
   private static instance: SubscriptionManager;
-  private subscriptions: Map<string, WsWebSocket[]> = new Map();
-  private reverseSubscriptions: Map<WsWebSocket, string[]> = new Map();
+  // From user to Markets
+  private subscriptions: Map<string, string[]> = new Map();
+  // Markets to users
+  private reverseSubscriptions: Map<string, string[]> = new Map();
 
-  private constructor() {}
+  private redisClient: RedisClientType;
+
+  private constructor() {
+    this.redisClient = createClient();
+    this.redisClient.connect();
+  }
 
   public static getInstance(): SubscriptionManager {
     if (!this.instance) {
@@ -23,34 +31,103 @@ export class SubscriptionManager {
   }
 
   public handleSubscription(data: SubscriptionData, ws: WsWebSocket) {
-
-    const subscriberClient = await createClient().connect()
-
     if (data.type === "SUBSCRIBE") {
       // check if the market is already subscribed by the server
-      if (!this.subscriptions.has(data.market) && data.market in SUPPORTED_MARKETS) {
-
-        this.subscriptions.set(data.market, [ws]);
+      if (
+        !this.reverseSubscriptions.has(data.market) &&
+        data.market in SUPPORTED_MARKETS
+      ) {
+        const user = UserManager.getInstance().getUserFromWs(ws);
+        if (!user) {
+          return;
+        }
+        this.subscriptions.set(user, [data.market]);
+        this.reverseSubscriptions.set(data.market, [user]);
         // Subscribe to the market
-        subscriberClient.subscribe(MARKET_TRADE_CHANNELS, (message) => {
+        this.redisClient.subscribe(data.market, (message) => {
           // Get all subscribed users for this market
           const users = this.subscriptions.get(data.market);
           users?.forEach((user) => {
-            user.send(message);
-          })
-        })
+            // we have to userId here, get the user
+            UserManager.getInstance()
+              .getUserFromId(user)
+              ?.emit({
+                type: "TRADE",
+                data: JSON.parse(message),
+                market: data.market,
+              });
+          });
+        });
       } else {
-        // Market is already subscribed, just add the user to the list
-        const users = this.subscriptions.get(data.market);
-        if (users && !users.includes(ws)) {
-          users.push(ws);
-          this.subscriptions.set(data.market, users);
-        }
+        // Market is already subscribed add the user to the list
+        this.subscriptions.set(User, [
+          ...(this.subscriptions.get(User) || []),
+          data.market,
+        ]);
+        this.reverseSubscriptions.set(data.market, [
+          ...(this.reverseSubscriptions.get(data.market) || []),
+          User,
+        ]);
       }
-
     } else if (data.type === "UNSUBSCRIBE") {
-      // unsub that user
+      // Remove the user from the market if no users are left, unsubscribe from redis
+      const markets = this.subscriptions.get(User);
+      this.subscriptions.delete(User);
 
-      // Check if there are user  subscribed to this market
+      if (markets) {
+        markets.forEach((market) => {
+          let users = this.reverseSubscriptions.get(market);
+          if (users) {
+            users = users.filter((user) => user != User);
+
+            this.reverseSubscriptions.set(market, users);
+
+            if (!users) {
+              // remove the subscription from the reverse Subscription
+              this.reverseSubscriptions.delete(market);
+              // Handle Unsuscribe
+              this.redisClient.unsubscribe(market);
+            }
+          } else {
+            // No user
+            // unsubscribe from the market
+            this.redisClient.unsubscribe(market);
+          }
+        });
+      }
     }
+  }
+
+  public userLeft(userId: string) {
+    // User Left, remove all subs and unscribe from redis if no users are left
+
+    const markets = this.subscriptions.get(userId);
+    this.subscriptions.delete(userId);
+    if (markets) {
+      // loop over each market and remove the user from reverseSubscription
+      // after that check if there are any users left for that market
+      // if no users are left, remove the market from subscriptions and
+      // unsubscribe from redis
+
+      markets.forEach((market) => {
+        let users = this.reverseSubscriptions.get(market);
+        if (users) {
+          users = users.filter((user) => user != userId);
+
+          this.reverseSubscriptions.set(market, users);
+
+          if (!users) {
+            // remove the subscription from the reverse Subscription
+            this.reverseSubscriptions.delete(market);
+            // Handle Unsuscribe
+            this.redisClient.unsubscribe(market);
+          }
+        } else {
+          // No user
+          // unsubscribe from the market
+          this.redisClient.unsubscribe(market);
+        }
+      });
+    }
+  }
 }

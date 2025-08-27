@@ -8,4 +8,8 @@ export class User {
     this.id = id;
     this.ws = ws;
   }
+
+  public emit(message: any) {
+    this.ws.send(JSON.stringify(message));
+  }
 }
