@@ -16,6 +16,15 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "migrate:create": {
+      "cache": false
+    },
+    "migrate:up": {
+      "cache": false
+    },
+    "migrate:down": {
+      "cache": false  
     }
   }
 }
