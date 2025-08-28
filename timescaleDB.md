@@ -51,8 +51,20 @@ Also we can merge the already aggregated data that got lag behind and with curre
 In Redis, if a redis client is used for subscribing something then it can't be used for anything else, but A single redis client can support all queue, DB and publisj functionality.
 A subscribing connection is blocking one, cuz it has to keep on listening for messages, but also a single subscriberConnection can subscribe for mutiple channels
 
+- Redis a DB has 2 function HSET and SET , HSET is used to store complex data like hashmap SET is used to store single string
+
 
 # Common Module and ES Module
 if no type is defined in the package json file then it is a commonjs file 
 we have to explictly tell 
 es module supports top level await.
+
+# Curl 
+It is a command line tool to send request and fetch response. Curl means client url.
+```ts
+curl GET ''
+
+curl -X POST ''
+-H ''
+-D ''
+```

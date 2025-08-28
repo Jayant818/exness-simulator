@@ -2,7 +2,7 @@
   "name": "api",
   "version": "1.0.0",
   "main": "index.js",
-  "type":"module",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsc -b && node dist/index.js"
@@ -16,9 +16,11 @@
     "@types/redis": "^4.0.10",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "redis": "^5.8.2"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19"
+    "@types/cors": "^2.8.19",
+    "@types/jsonwebtoken": "^9.0.10"
   }
 }
