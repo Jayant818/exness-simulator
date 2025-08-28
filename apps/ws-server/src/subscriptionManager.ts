@@ -1,7 +1,7 @@
 import { WebSocket as WsWebSocket } from "ws";
-import { MARKET_TRADE_CHANNELS, SUPPORTED_MARKETS } from "./constants";
+import { MARKET_TRADE_CHANNELS, SUPPORTED_MARKETS } from "./constants.js";
 import { createClient, RedisClientType } from "redis";
-import { UserManager } from "./userManager";
+import { UserManager } from "./userManager.js";
 
 interface SubscriptionData {
   type: "SUBSCRIBE" | "UNSUBSCRIBE";
@@ -38,18 +38,27 @@ export class SubscriptionManager {
       return;
     }
 
+    console.log("data", data);
+    console.log("set", this.reverseSubscriptions.has(data.market));
+    console.log("supported", data.market in SUPPORTED_MARKETS);
+    console.log("user", SUPPORTED_MARKETS);
+    console.log("user", user);
+
     if (data.type === "SUBSCRIBE") {
       // check if the market is already subscribed by the server
       if (
-        !this.reverseSubscriptions.has(data.market) &&
-        data.market in SUPPORTED_MARKETS
+        !this.reverseSubscriptions.has(data.market)
+        // data.market in SUPPORTED_MARKETS
       ) {
         this.subscriptions.set(user, [data.market]);
         this.reverseSubscriptions.set(data.market, [user]);
+        console.log("Subscribing to market:", data.market);
         // Subscribe to the market
         this.redisClient.subscribe(data.market, (message) => {
+          console.log("Received message for market:", data.market);
           // Get all subscribed users for this market
-          const users = this.subscriptions.get(data.market);
+          const users = this.reverseSubscriptions.get(data.market);
+          console.log("Subscribed users:", users);
           users?.forEach((user) => {
             // we have to userId here, get the user
             UserManager.getInstance()

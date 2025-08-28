@@ -1,5 +1,5 @@
 {
-  "name": "exchangeV1",
+  "name": "exchange",
   "private": true,
   "scripts": {
     "build": "turbo run build",

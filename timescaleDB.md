@@ -43,3 +43,16 @@
 ```
 
 Also we can merge the already aggregated data that got lag behind and with current data and aggregate in a single query.
+
+
+
+# Redis
+
+In Redis, if a redis client is used for subscribing something then it can't be used for anything else, but A single redis client can support all queue, DB and publisj functionality.
+A subscribing connection is blocking one, cuz it has to keep on listening for messages, but also a single subscriberConnection can subscribe for mutiple channels
+
+
+# Common Module and ES Module
+if no type is defined in the package json file then it is a commonjs file 
+we have to explictly tell 
+es module supports top level await.

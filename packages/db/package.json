@@ -2,9 +2,10 @@
   "name": "@repo/db",
   "version": "1.0.0",
   "main": "index.js",
+  "type":"module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc -b"
+    "build": "tsc -b && cd ../.. && npm i"
   },
   "exports": {
     ".": "./dist/index.js"

@@ -5,6 +5,7 @@ export const SUPPORTED_MARKETS = [
   "bnbusdt",
   "dogeusdt",
   "shibusdt",
+  "btcusdt@trade",
 ];
 
 export const MARKET_TRADE_CHANNELS = "market_trade_channels";

@@ -9,7 +9,7 @@ import {
 } from "@repo/common";
 
 import { createClient } from "redis";
-import { RedisManager } from "@repo/shared-redis";
+import { publisher, subscriber } from "@repo/shared-redis";
 
 interface msgType {
   type: "SUBSCRIBE" | "UNSUBSCRIBE";
@@ -19,9 +19,9 @@ interface msgType {
 let SUBSCRIBED_MARKETS: Map<string, WebSocket> = new Map();
 
 async function main() {
-  const publisherClient = await createClient().connect();
+  const publisherClient = publisher;
 
-  const subscribeClient = await createClient().connect();
+  const subscribeClient = subscriber;
 
   subscribeClient.subscribe(POLLING_ENGINE_EVENT_CHANNEL, (msg) => {
     const data: msgType = JSON.parse(msg);
@@ -39,10 +39,8 @@ async function main() {
       return;
     }
 
-    let redisInstance = RedisManager.getInstance();
-
     // Open the connection
-    const webSocket = new WebSocket(`${BINANCE_WS_URL}/${market}`);
+    const webSocket = new WebSocket(`${BINANCE_WS_URL}${market}`);
 
     webSocket.onopen = () => {
       console.log(`WebSocket connection established for market: ${market}`);
@@ -51,15 +49,22 @@ async function main() {
 
     webSocket.onmessage = async (msg) => {
       const data = JSON.parse(msg.data);
-      console.log("Pushing data to Redis:", data);
-      await redisInstance.pushMessage(
+      console.log("Pushing data to Redis:", data.data);
+      await publisher.lPush(
         POLLING_ENGINE_QUEUE_NAME,
-        JSON.stringify(data)
+        JSON.stringify(data.data)
       );
 
+      const tickerData = {
+        buy: parseFloat(data.data.p) * (1 + 0.01 * 5), //+5% margin
+        sell: parseFloat(data.data.p) * (1 - 0.01 * 5), //-5% margin
+        market: market,
+        time: data.data.E,
+      };
+
       await publisherClient.publish(
-        MARKET_TRADE_CHANNELS,
-        JSON.stringify(data)
+        "btcusdt@trade",
+        JSON.stringify(tickerData)
       );
     };
 

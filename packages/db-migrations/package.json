@@ -2,6 +2,7 @@
   "name": "@repo/db-migrations",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "migrate:create": "node-pg-migrate create",
     "migrate:up": "node-pg-migrate up --no-transaction",

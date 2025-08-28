@@ -40,12 +40,11 @@ candlesRouter.get("/", (req, res) => {
 
   if (endTime) {
     params.push(new Date(endTime as string));
-    query += ` AND bucket <= $${params.length}`;
+    query += `AND bucket <= $${params.length}`;
   }
 
   query += `
     ORDER BY bucket DESC
-    LIMIT 500
   `;
 
   pool

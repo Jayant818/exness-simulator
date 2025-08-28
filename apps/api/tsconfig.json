@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2015"],
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "module": "nodenext"
   },
   "exclude": ["node_modules", "dist"],
   "include": ["src"]

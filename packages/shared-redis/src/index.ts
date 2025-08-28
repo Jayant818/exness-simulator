@@ -1,23 +1,37 @@
-import { createClient, RedisClientType } from "redis";
+import { createClient, RedisClientType as RedisType } from "redis";
 
 export class RedisManager {
-  private static instance: RedisManager;
-  private client: RedisClientType;
+  private static standardClient: RedisType;
+  private static subscriberClient: RedisType;
 
-  private constructor() {
-    this.client = createClient();
-    this.client.connect();
+  private constructor() {}
+
+  private static async createClient(): Promise<RedisType> {
+    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+
+    const client = createClient({ url: redisUrl });
+    await client.connect();
+    // @ts-ignore
+    return client;
   }
 
-  public static getInstance(): RedisManager {
-    if (!this.instance) {
-      this.instance = new RedisManager();
+  public static async getStandardClient(): Promise<RedisType> {
+    if (!RedisManager.standardClient) {
+      RedisManager.standardClient = await this.createClient();
     }
 
-    return this.instance;
+    return RedisManager.standardClient;
   }
 
-  public pushMessage(queue: string, message: string): Promise<number> {
-    return this.client.lPush(queue, message);
+  public static async getSubscriberClient(): Promise<RedisType> {
+    if (!RedisManager.subscriberClient) {
+      RedisManager.subscriberClient = await this.createClient();
+    }
+
+    return RedisManager.subscriberClient;
   }
 }
+
+export const redis = await RedisManager.getStandardClient();
+export const publisher = redis;
+export const subscriber = await RedisManager.getSubscriberClient();

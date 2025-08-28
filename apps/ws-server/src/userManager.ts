@@ -1,5 +1,5 @@
-import { SubscriptionManager } from "./subscriptionManager";
-import { User } from "./user";
+import { SubscriptionManager } from "./subscriptionManager.js";
+import { User } from "./user.js";
 import { WebSocket as WsWebSocket } from "ws";
 
 export class UserManager {
