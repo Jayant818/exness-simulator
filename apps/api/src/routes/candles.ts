@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Router } from "express";
-import { pool } from "@repo/db";
+import { pool } from "@repo/timeseries-db";
 
 export const candlesRouter = Router();
 

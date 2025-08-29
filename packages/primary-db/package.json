@@ -1,0 +1,29 @@
+{
+  "name": "@repo/primary-db",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npx prisma generate && tsc -b && cd ../.. && npm i",
+    "db:seed": "prisma db seed"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "prisma": {
+    "seed": "ts-node --project tsconfig.local.json prisma/seeds/main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "dotenv-cli": "^10.0.0",
+    "prisma": "^6.15.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.15.0",
+    "dotenv": "^17.2.1",
+    "ts-node": "^10.9.2"
+  }
+}

@@ -32,7 +32,7 @@ wss.on("connection", function connection(ws) {
   });
 
   ws.on("error", (err) => {
-    // delegate this task to userManager
+    // delegate this task to userManager?
     console.log("WebSocket error:", err);
     UserManager.getInstance().userLeft(ws);
   });

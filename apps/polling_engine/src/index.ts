@@ -8,7 +8,6 @@ import {
   MARKET_TRADE_CHANNELS,
 } from "@repo/common";
 
-import { createClient } from "redis";
 import { publisher, subscriber } from "@repo/shared-redis";
 
 interface msgType {
@@ -40,7 +39,9 @@ async function main() {
     }
 
     // Open the connection
-    const webSocket = new WebSocket(`${BINANCE_WS_URL}${market}`);
+    const webSocket = new WebSocket(
+      `${BINANCE_WS_URL}${market.toLowerCase()}@trade`
+    );
 
     webSocket.onopen = () => {
       console.log(`WebSocket connection established for market: ${market}`);
@@ -62,10 +63,7 @@ async function main() {
         time: data.data.E,
       };
 
-      await publisherClient.publish(
-        "btcusdt@trade",
-        JSON.stringify(tickerData)
-      );
+      await publisherClient.publish("btcusdt", JSON.stringify(tickerData));
     };
 
     webSocket.onclose = () => {

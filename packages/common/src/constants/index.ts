@@ -9,4 +9,6 @@ export const POLLING_ENGINE_QUEUE_NAME = "polling-engine-queue";
 
 export const MARKET_TRADE_CHANNELS = "market_trade_channels";
 
-export const SIMULATOR_MARGIN = 5; //5% margin 
+export const SIMULATOR_MARGIN = 5; //5% margin
+
+export const TRADE_KEY = "trade_key";

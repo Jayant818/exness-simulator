@@ -2,22 +2,29 @@ import express from "express";
 import cors from "cors";
 import { balanceRouter } from "./routes/balance.js";
 import { candlesRouter } from "./routes/candles.js";
-import { orderRouter } from "./routes/orders.js";
+import { tradeRouter } from "./routes/trade.js";
 import { authRouter } from "./routes/auth.js";
+import { assetRouter } from "./routes/assest.js";
+import startTradeListening from "./tradeListener.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-app.use("/api/balance", balanceRouter);
+startTradeListening().catch((err) => {
+  console.error("Failed to start trade listener:", err);
+  process.exit(1);
+});
+
 app.use("/api/candles", candlesRouter);
-app.use("/api/orders", orderRouter);
-app.use("/api/auth", authRouter);
+app.use("/api/v1/trade", tradeRouter);
+app.use("/api/v1/user", authRouter);
+app.use("/api/v1/assets", assetRouter);
 
 //localhost:3002/api/auth/goggle/callback
 
-http: app.get("/", (req, res) => {
+app.get("/", (req, res) => {
   res.send("Http Server is running");
 });
 

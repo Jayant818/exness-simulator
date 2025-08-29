@@ -12,14 +12,18 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/primary-db": "1.0.0",
+    "@repo/timeseries-db": "1.0.0",
     "@types/express": "^5.0.3",
     "@types/redis": "^4.0.10",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "redis": "^5.8.2"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/jsonwebtoken": "^9.0.10"
   }

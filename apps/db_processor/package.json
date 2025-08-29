@@ -13,6 +13,6 @@
   "description": "",
   "dependencies": {
     "redis": "^5.8.2",
-    "@repo/db": "1.0.0"
+    "@repo/timeseries-db": "1.0.0"
   }
 }

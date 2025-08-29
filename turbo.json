@@ -25,6 +25,9 @@
     },
     "migrate:down": {
       "cache": false  
+    },
+    "db:seed":{
+      "cache": false
     }
   }
 }

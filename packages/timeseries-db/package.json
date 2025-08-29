@@ -1,5 +1,5 @@
 {
-  "name": "@repo/db",
+  "name": "@repo/timeseries-db",
   "version": "1.0.0",
   "main": "index.js",
   "type":"module",

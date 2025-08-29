@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { createClient } from "redis";
-import { pool } from "@repo/db";
+import { pool } from "@repo/timeseries-db";
 import { POLLING_ENGINE_QUEUE_NAME } from "@repo/common";
 
 async function main() {
