@@ -1,9 +1,46 @@
 import { redis } from "@repo/shared-redis";
-import { IOpenOrderRes, TradeType } from "../routes/trade.js";
+import { IClosedOrderRes, IOpenOrderRes, TradeType } from "../routes/trade.js";
+import { Heap } from "heap-js";
+
+interface HeapNode {
+  orderId: string;
+  price: number;
+}
+
+export interface OPEN_ORDERS extends IOpenOrderRes {
+  userId: string;
+}
+
+export interface CLOSED_ORDERS extends IClosedOrderRes {
+  userId: string;
+}
+
+// export interface PENDING_ORDERS extends IOpenOrderRes { }
 
 export class Engine {
-  private static OPEN_ORDERS: IOpenOrderRes[] = [];
-  private static PENDING_ORDERS: IOpenOrderRes[] = [];
+  private static PENDING_ORDERS = new Map<string, OPEN_ORDERS>();
+
+  // orderId to IOpenOrderRes mapping
+  public static OPEN_ORDERS = new Map<string, OPEN_ORDERS>();
+
+  public static CLOSED_ORDERS = new Map<string, CLOSED_ORDERS>();
+
+  // userOrder Mapping
+  public static userOrderMap = new Map<string, Set<string>>();
+
+  // stopLoss price & orderId
+  // private static stopLossHeap = new Heap<HeapNode>((a, b) => a.price - b.price);
+
+  public static stopLossMap = new Map<string, Heap<HeapNode>>();
+
+  // takeProfit price & orderId
+  // private static takeProfitHeap = new Heap<HeapNode>(
+  //   (a, b) => b.price - a.price
+  // );
+
+  public static takeProfitMap = new Map<string, Heap<HeapNode>>();
+
+  public static leveragedOrderMap = new Map<string, Heap<HeapNode>>();
 
   private constructor() {}
 
@@ -34,7 +71,6 @@ export class Engine {
     });
   }
 
-  // TODO : We will get margin from our end it will calculated on the server itself
   public static async process(data: {
     type: "market" | "limit";
     side: "buy" | "sell";
@@ -71,17 +107,47 @@ export class Engine {
 
     if (data.side === "buy") {
       if (data.type === "market" && !data.leverage) {
-        this.OPEN_ORDERS.push({
+        this.OPEN_ORDERS.set(orderId, {
           orderId,
           type: data.type,
           side: data.side,
           QTY: data.QTY,
           TP: data.TP,
           SL: data.SL,
+          userId: data.userId,
           market: data.market,
           createdAt: new Date().toISOString(),
           openPrice: Number(tradeData.buy),
         });
+
+        if (!this.userOrderMap.has(data.userId)) {
+          this.userOrderMap.set(data.userId, new Set());
+        }
+
+        this.userOrderMap.get(data.userId)?.add(orderId);
+
+        if (data.SL) {
+          if (!this.stopLossMap.has(data.market)) {
+            this.stopLossMap.set(
+              data.market,
+              new Heap<HeapNode>((a, b) => a.price - b.price)
+            );
+          }
+
+          this.stopLossMap.get(data.market)?.push({ orderId, price: data.SL });
+        }
+
+        if (data.TP) {
+          if (!this.takeProfitMap.has(data.market)) {
+            this.takeProfitMap.set(
+              data.market,
+              new Heap<HeapNode>((a, b) => b.price - a.price)
+            );
+          }
+          this.takeProfitMap
+            .get(data.market)
+            ?.push({ orderId, price: data.TP });
+        }
 
         // Update users balance and add assests for the user
 
@@ -108,17 +174,25 @@ export class Engine {
 
         return orderId;
       } else if (data.type === "limit" && !data.leverage) {
-        this.PENDING_ORDERS.push({
+        // TODO: ADD SL & TP IN LIMIT ORDER when order is executed
+        this.PENDING_ORDERS.set(orderId, {
           orderId,
           type: data.type,
           side: data.side,
           QTY: data.QTY,
           TP: data.TP,
+          userId: data.userId,
           SL: data.SL,
           market: data.market,
           createdAt: new Date().toISOString(),
           openPrice: Number(tradeData.buy),
         });
+
+        if (!this.userOrderMap.has(data.userId)) {
+          this.userOrderMap.set(data.userId, new Set());
+        }
+
+        this.userOrderMap.get(data.userId)?.add(orderId);
 
         // Update users balance and add assests for the user
 
@@ -193,7 +267,7 @@ export class Engine {
           throw new Error("User don't have sufficient balance to do the trade");
         }
 
-        this.OPEN_ORDERS.push({
+        this.OPEN_ORDERS.set(orderId, {
           market: data.market,
           openPrice: Number(tradeData.buy) * 100,
           orderId,
@@ -203,9 +277,50 @@ export class Engine {
           type: "market",
           margin,
           SL: data.SL,
+          userId: data.userId,
           TP: data.TP,
           createdAt: new Date().toISOString(),
         });
+
+        if (!this.userOrderMap.has(data.userId)) {
+          this.userOrderMap.set(data.userId, new Set());
+        }
+
+        this.userOrderMap.get(data.userId)?.add(orderId);
+
+        if (data.SL) {
+          if (!this.stopLossMap.has(data.market)) {
+            this.stopLossMap.set(
+              data.market,
+              new Heap<HeapNode>((a, b) => a.price - b.price)
+            );
+          }
+
+          this.stopLossMap.get(data.market)?.push({ orderId, price: data.SL });
+        }
+
+        if (data.TP) {
+          if (!this.takeProfitMap.has(data.market)) {
+            this.takeProfitMap.set(
+              data.market,
+              new Heap<HeapNode>((a, b) => b.price - a.price)
+            );
+          }
+          this.takeProfitMap
+            .get(data.market)
+            ?.push({ orderId, price: data.TP });
+        }
+
+        if (!this.leveragedOrderMap.has(data.market)) {
+          this.leveragedOrderMap.set(
+            data.market,
+            new Heap<HeapNode>((a, b) => b.price - a.price)
+          );
+        }
+
+        this.leveragedOrderMap
+          .get(data.market)
+          ?.push({ orderId, price: Number(tradeData.buy) });
 
         const positions = userData.positions
           ? JSON.parse(userData.positions)
@@ -226,6 +341,7 @@ export class Engine {
 
         return orderId;
       } else if (data.type === "limit" && data.leverage) {
+        // TODO: ADD SL AND TP IN LIMIT ORDER when order is executed
         let totalQty = data.QTY ? Number(data.QTY) : 0;
         // let margin = data.margin ? Number(data.margin) : 0;
         let leverageUsed = data.leverage
@@ -256,17 +372,24 @@ export class Engine {
           throw new Error("User don't have sufficient balance to do the trade");
         }
 
-        this.PENDING_ORDERS.push({
+        this.PENDING_ORDERS.set(orderId, {
           orderId,
           type: data.type,
           side: data.side,
           QTY: data.QTY,
           TP: data.TP,
+          userId: data.userId,
           SL: data.SL,
           market: data.market,
           createdAt: new Date().toISOString(),
           openPrice: Number(tradeData.buy),
         });
+
+        if (!this.userOrderMap.has(data.userId)) {
+          this.userOrderMap.set(data.userId, new Set());
+        }
+
+        this.userOrderMap.get(data.userId)?.add(orderId);
 
         const positions = userData.positions
           ? JSON.parse(userData.positions)

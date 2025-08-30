@@ -41,23 +41,6 @@ const TradeChart = ({ market }: { market: string }) => {
                     chartManagerRef.current.destroy();
                 }
 
-                // const chartManager = new ChartManager(
-                //     chartRef.current,
-                //     [
-                //         ...kLinesData?.map(kline => ({
-                //             close: parseFloat(kline.close),
-                //             high: parseFloat(kline.high),
-                //             low: parseFloat(kline.low),
-                //             open: parseFloat(kline.open),
-                //             timestamp: new Date(kline.end),
-                //         }))
-                //     ].sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1)) || [],
-                //     {
-                //         background: "#0e0f14",
-                //         color: "white",
-                //       }
-                // )
-
                 const chartManager = new ChartManager(
                     chartRef.current, 
                     [
@@ -72,8 +55,8 @@ const TradeChart = ({ market }: { market: string }) => {
                             .sort((a, b) => a.timestamp - b.timestamp),
                         ],
                         {
-                            background: "#0e0f14",
-                            color: "white",
+                            background: "#0a0e13",
+                            color: "#ffffff",
                         }
                 );
 
@@ -92,8 +75,32 @@ const TradeChart = ({ market }: { market: string }) => {
     },[market])
 
   return (
-    <div ref={chartRef} style={{ width: '100%', height: '500px' }} >
-
+    <div className="flex-1 bg-[#0a0e13] border-r border-[#2a3441] relative">
+      {/* Chart Header */}
+      <div className="absolute top-4 left-4 z-10 bg-[#141920]/90 backdrop-blur-sm rounded-lg p-3 border border-[#2a3441]">
+        <div className="flex items-center space-x-4">
+          <div className="text-white font-bold text-lg">{market}</div>
+          <div className="text-green-400 text-sm font-medium">+2.45%</div>
+          <div className="text-gray-400 text-sm">1D</div>
+        </div>
+      </div>
+      
+      {/* Chart Container */}
+      <div ref={chartRef} className="w-full h-full" />
+      
+      {/* Chart Controls */}
+      <div className="absolute bottom-4 left-4 z-10 bg-[#141920]/90 backdrop-blur-sm rounded-lg p-2 border border-[#2a3441]">
+        <div className="flex items-center space-x-2">
+          {['1m', '5m', '15m', '1h', '4h', '1D'].map((timeframe) => (
+            <button
+              key={timeframe}
+              className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-white hover:bg-[#2a3441] rounded transition-colors"
+            >
+              {timeframe}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

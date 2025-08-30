@@ -29,7 +29,7 @@ export interface IOpenOrderRes {
   market: string;
 }
 
-interface IClosedOrderRes extends IOpenOrderRes {
+export interface IClosedOrderRes extends IOpenOrderRes {
   closePrice: number;
   pnl: number;
 }
@@ -81,7 +81,6 @@ tradeRouter.post("/", async (req, res) => {
     QTY,
     TP,
     SL,
-    trade_type,
     market,
     balance: user.balance,
     userId: userId,

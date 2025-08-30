@@ -14,8 +14,8 @@ const WebTradingPageWrapper = () => {
   );
 
   return (
-    <div className="bg-trading-bg-primary text-trading-text-primary flex flex-col">
-      {/* <TradingHeader /> */}
+    <div className="trading-layout flex flex-col h-screen">
+      <TradingHeader />
       
       <div className="flex-1 flex overflow-hidden">
         <InstrumentSidebar 
@@ -23,7 +23,10 @@ const WebTradingPageWrapper = () => {
           onSelectInstrument={setSelectedInstrument}
         />
         
-        <TradeChart market="BTCUSDT" />
+        <div className="flex-1 flex flex-col">
+          <TradeChart market="BTCUSDT" />
+        </div>
+        
         <TradingPanel selectedInstrument={selectedInstrument} />
       </div>
     </div>
