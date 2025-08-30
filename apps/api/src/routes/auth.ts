@@ -67,7 +67,11 @@ authRouter.post("/signup", async (req, res) => {
   redis.hSet(user.id, {
     username: user.username,
     email: user.email,
-    balance: "500000",
+    balance: JSON.stringify({
+      usd: "500000",
+      locked_usd: "0",
+    }),
+    locked_balance: "0",
   });
 
   const JSON_WEB_TOKEN_SECRET = process.env.JSON_WEB_TOKEN_SECRET;
@@ -85,7 +89,4 @@ authRouter.post("/signup", async (req, res) => {
   res.status(201).json({ userId: user.id });
 });
 
-authRouter.get("/balance", (req, res) => { 
-  
-});
-
+authRouter.get("/balance", (req, res) => {});

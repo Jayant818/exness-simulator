@@ -1,29 +1,33 @@
-import React from 'react'
+"use client";
+import { useState } from 'react';
+
+import { TradingInstrument } from '@repo/common';
+import { mockInstruments } from '@repo/common';
+import TradingHeader from './TradingHeader';
+import InstrumentSidebar from './InstrumentSidebar';
+import TradeChart from './tradeView';
+import TradingPanel from './TradingPanel';
 
 const WebTradingPageWrapper = () => {
-  return (
-    <div className='flex '>
-    <aside>
-        <button>
-            <svg name="list" width="16" height="16"><use href="/webtrading/assets/icons-ONPDMtIc.svg#list"></use></svg>
-        </button>   
-        <button>
-            <svg name="custom-calendar-alt" width="16" height="16"><use href="/webtrading/assets/icons-ONPDMtIc.svg#custom-calendar-alt"></use></svg>
-        </button>      
-    </aside>
-    {/* Resizable container  */}
-    <div>
-    </div>
-    {/* Trading Library */}
-    <div>
-              
-    </div>
+  const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(
+    mockInstruments.find((instrument: TradingInstrument) => instrument.symbol === 'XAU/USD') || null
+  );
 
-    {/*Trading Section  */}
-    <div></div>   
-    <footer></footer>    
-  </div>
-  )
-}
+  return (
+    <div className="bg-trading-bg-primary text-trading-text-primary flex flex-col">
+      {/* <TradingHeader /> */}
+      
+      <div className="flex-1 flex overflow-hidden">
+        <InstrumentSidebar 
+          selectedInstrument={selectedInstrument}
+          onSelectInstrument={setSelectedInstrument}
+        />
+        
+        <TradeChart market="BTCUSDT" />
+        <TradingPanel selectedInstrument={selectedInstrument} />
+      </div>
+    </div>
+  );
+};
 
 export default WebTradingPageWrapper;

@@ -1,5 +1,5 @@
 import PrismaClient from "@repo/primary-db";
-import { redis } from "@repo/shared-redis";
+import { redis, subscriber } from "@repo/shared-redis";
 
 async function startTradeListening() {
   // Get all the assests from the database
@@ -13,10 +13,11 @@ async function startTradeListening() {
     return;
   }
 
-  redis.subscribe(assetsSymbol, (message, channel) => {
+  subscriber.subscribe(assetsSymbol, async (message, channel) => {
     const data = JSON.parse(message);
-    console.log("Trade data:", data);
-    // Here we will process the trade data and update the database accordingly
+    const key = `trade:${data.market}`;
+
+    await redis.hSet(key, data);
   });
 }
 

@@ -4,8 +4,8 @@ import { TRADE_KEY } from "@repo/common";
 import { Engine } from "../engine/index.js";
 
 interface ICreateTradeRequest {
-  type: "buy" | "sell";
-  margin?: number;
+  type: "market" | "limit";
+  side: "buy" | "sell";
   leverage?: "5x" | "10x" | "20x" | "100x";
   QTY?: number;
   TP?: number;
@@ -13,15 +13,20 @@ interface ICreateTradeRequest {
   market: string;
 }
 
-type TradeType = "without leverage" | "with leverage";
+export type TradeType = "without leverage" | "with leverage";
 
 export interface IOpenOrderRes {
   orderId: string;
-  type: "buy" | "sell";
-  margin: number;
-  leverage: "5x" | "10x" | "20x" | "100x";
+  type: "market" | "limit";
+  side: "buy" | "sell";
+  margin?: number;
+  QTY: number;
+  leverage?: number;
   openPrice: number;
   createdAt: string;
+  TP?: number;
+  SL?: number;
+  market: string;
 }
 
 interface IClosedOrderRes extends IOpenOrderRes {
@@ -53,20 +58,10 @@ tradeRouter.post("/", async (req, res) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { type, margin, leverage, QTY, TP, SL, market } =
+  const { type, leverage, QTY, TP, SL, market } =
     req.body as ICreateTradeRequest;
 
-  if (!type || !market) {
-    return res.status(411).json({ message: "Incorrect inputs" });
-  }
-
-  let trade_type: TradeType;
-
-  if ((leverage && margin) || (leverage && QTY) || (margin && QTY)) {
-    trade_type = "with leverage";
-  } else if (!leverage && !margin && QTY) {
-    trade_type = "without leverage";
-  } else {
+  if (!type || !market || !QTY) {
     return res.status(411).json({ message: "Incorrect inputs" });
   }
 
@@ -78,22 +73,22 @@ tradeRouter.post("/", async (req, res) => {
       .json({ message: "User doesn't have enough balance" });
   }
 
-  if (trade_type === "without leverage" && QTY) {
-    // TODO : check if the order has moved to the takeprofit or stoploss already then close the order immediately
+  // TODO : check if the order has moved to the takeprofit or stoploss already then close the order immediately
 
-    const data = {
-      type,
-      QTY,
-      TP,
-      SL,
-      trade_type,
-      market,
-      balance: user.balance,
-      userId: userId,
-    };
+  const data = {
+    type,
+    side: req.body.side, // add side from request
+    QTY,
+    TP,
+    SL,
+    trade_type,
+    market,
+    balance: user.balance,
+    userId: userId,
+    leverage,
+  };
 
-    await Engine.process(data);
-  }
+  await Engine.process(data);
 
   res.status(200).json({ orderId: "Trade created successfully" });
 });

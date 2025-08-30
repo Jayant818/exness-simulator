@@ -16,7 +16,7 @@ interface KLine{
     volume: string;
 }
 
-const TradeView = ({ market }: { market: string }) => {
+const TradeChart = ({ market }: { market: string }) => {
     
     const chartRef = useRef<HTMLDivElement>(null);
     const chartManagerRef = useRef<ChartManager>(null);
@@ -98,4 +98,4 @@ const TradeView = ({ market }: { market: string }) => {
   )
 }
 
-export default TradeView;
+export default TradeChart;
