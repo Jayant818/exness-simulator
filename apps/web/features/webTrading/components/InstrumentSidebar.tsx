@@ -1,56 +1,79 @@
 "use client";
-import { useEffect, useState } from 'react';
+import {  useEffect, useState } from 'react';
 import { Search, Star } from 'lucide-react';
-import { mockInstruments } from '@repo/common';
 import { TradingInstrument } from '@repo/common';
 import axios from 'axios';
+import { WsManager } from '../../../lib/WsManager';
+
+interface WsTradeData{
+  data: {
+    buy: number;
+    market: string;
+    sell: number;
+    time: number;
+  },
+  market: string;
+  type: "TRADE";
+}
 
 interface InstrumentSidebarProps {
   selectedInstrument: TradingInstrument | null;
   onSelectInstrument: (instrument: TradingInstrument) => void;
+  assets: TradingInstrument[];
 }
 
-const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: InstrumentSidebarProps) => {
+const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fetchAssets }: InstrumentSidebarProps) => {
+
   const [searchTerm, setSearchTerm] = useState('');
   // const [activeTab, setActiveTab] = useState('all');
-  const [assets, setAssets] = useState<TradingInstrument[]>([]);
+  const [assets, setAssets] = useState<TradingInstrument[]>(fetchAssets);
 
-
-  // const filteredInstruments = mockInstruments.filter(instrument =>
-  //   instrument.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //   instrument.name.toLowerCase().includes(searchTerm.toLowerCase())
-  // );
-
-  const getChangeIcon = (change: number) => {
-    return change >= 0 ? '▲' : '▼';
-  };
-
-  const categories = [
-    { key: 'all', label: 'All' },
-    { key: 'forex', label: 'Forex' },
-    { key: 'crypto', label: 'Crypto' },
-    { key: 'stocks', label: 'Stocks' }
-  ];
-
-  // const getCategoryInstruments = () => {
-  //   if (activeTab === 'all') return filteredInstruments;
-  //   return filteredInstruments.filter(instrument => instrument.category === activeTab);
-  // };
-  async function fetchAssets() { 
-
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/assets`);
-      console.log(res.data);
-      setAssets(res.data.assets);
-
-    } catch (error) {
-      console.error('Error fetching assets:', error);
-    }
-  }
 
   useEffect(() => {
-    fetchAssets();
-  },[])
+    async function fetchAndSubscribe() {
+      try {
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/assets`);
+        const initialAssets: TradingInstrument[] = res.data.assets;
+        setAssets(initialAssets);
+        // setInitialPrice(initialAssets);
+
+        const wsInstance = WsManager.getInstance();
+
+        wsInstance.registerCallback('trade', (data: WsTradeData) => {
+          // updatePrice(data.market, data.data.buy, data.data.sell);
+          console.log("Trade data received in sidebar:", data);
+
+          setAssets(prevAssets => 
+            // Map over the previous assets array
+            prevAssets.map(asset => {
+              // Check if the current asset's symbol matches the market from the WebSocket data
+              if (asset.symbol.toLowerCase() === data.market) {
+                // If it matches, return a new object with the updated prices
+                return {
+                  ...asset,
+                  buyPrice: String(data.data.buy),
+                  sellPrice: String(data.data.sell),
+                };
+              }
+              // If it doesn't match, return the asset unchanged
+              return asset;
+            })
+          );
+        }, 'all-trades');
+
+      } catch (error) {
+        console.error('Error fetching assets:', error);
+      }
+    }
+
+    fetchAndSubscribe();
+
+    return () => {
+      const wsInstance = WsManager.getInstance();
+      wsInstance.deRegisterCallback('trade', 'all-trades');
+    };
+  }, []);
+
 
   const getCategoryInstruments = () => [];
 

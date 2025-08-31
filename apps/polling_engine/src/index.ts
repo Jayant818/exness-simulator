@@ -65,8 +65,11 @@ async function main() {
         market: market,
         time: data.data.E,
       };
-
-      await publisherClient.publish("btcusdt", JSON.stringify(tickerData));
+      console.log("Publishing to this market", market);
+      await publisherClient.publish(
+        market.toLowerCase(),
+        JSON.stringify(tickerData)
+      );
     };
 
     webSocket.onclose = () => {

@@ -12,16 +12,17 @@ const wss = new WebSocketServer({ port: 8080 });
 
 wss.on("connection", function connection(ws) {
   ws.on("message", (msg) => {
+    console.log("Received message:", msg.toString("utf-8"));
     try {
       console.log("Received message:", msg.toString("utf-8"));
-      const data = JSON.parse(msg.toString("utf-8"));
-      if (data.type === WS_MSG_TYPE.IDENTIFY) {
-        UserManager.getInstance().addUser(data.userId, ws);
+      const message = JSON.parse(msg.toString("utf-8"));
+      if (message.type === WS_MSG_TYPE.IDENTIFY) {
+        UserManager.getInstance().addUser(message.userId, ws);
       } else if (
-        data.type === WS_MSG_TYPE.SUBSCRIBE ||
-        data.type === WS_MSG_TYPE.UNSUBSCRIBE
+        message.type === WS_MSG_TYPE.SUBSCRIBE ||
+        message.type === WS_MSG_TYPE.UNSUBSCRIBE
       ) {
-        SubscriptionManager.getInstance().handleSubscription(data, ws);
+        SubscriptionManager.getInstance().handleSubscription(message, ws);
       }
     } catch (err) {}
   });

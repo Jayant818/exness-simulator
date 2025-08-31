@@ -2,6 +2,7 @@ import { WebSocket as WsWebSocket } from "ws";
 import { MARKET_TRADE_CHANNELS, SUPPORTED_MARKETS } from "./constants.js";
 import { createClient, RedisClientType } from "redis";
 import { UserManager } from "./userManager.js";
+import { subscriber } from "@repo/shared-redis";
 
 interface SubscriptionData {
   type: "SUBSCRIBE" | "UNSUBSCRIBE";
@@ -15,12 +16,7 @@ export class SubscriptionManager {
   // Markets to users
   private reverseSubscriptions: Map<string, string[]> = new Map();
 
-  private redisClient: RedisClientType;
-
-  private constructor() {
-    this.redisClient = createClient();
-    this.redisClient.connect();
-  }
+  private constructor() {}
 
   public static getInstance(): SubscriptionManager {
     if (!this.instance) {
@@ -41,7 +37,7 @@ export class SubscriptionManager {
     console.log("data", data);
     console.log("set", this.reverseSubscriptions.has(data.market));
     console.log("supported", data.market in SUPPORTED_MARKETS);
-    console.log("user", SUPPORTED_MARKETS);
+    console.log("market", SUPPORTED_MARKETS);
     console.log("user", user);
 
     if (data.type === "SUBSCRIBE") {
@@ -54,7 +50,7 @@ export class SubscriptionManager {
         this.reverseSubscriptions.set(data.market, [user]);
         console.log("Subscribing to market:", data.market);
         // Subscribe to the market
-        this.redisClient.subscribe(data.market, (message) => {
+        subscriber.subscribe(data.market, (message) => {
           console.log("Received message for market:", data.market);
           // Get all subscribed users for this market
           const users = this.reverseSubscriptions.get(data.market);
@@ -98,12 +94,12 @@ export class SubscriptionManager {
               // remove the subscription from the reverse Subscription
               this.reverseSubscriptions.delete(market);
               // Handle Unsuscribe
-              this.redisClient.unsubscribe(market);
+              subscriber.unsubscribe(market);
             }
           } else {
             // No user
             // unsubscribe from the market
-            this.redisClient.unsubscribe(market);
+            subscriber.unsubscribe(market);
           }
         });
       }
@@ -132,12 +128,12 @@ export class SubscriptionManager {
             // remove the subscription from the reverse Subscription
             this.reverseSubscriptions.delete(market);
             // Handle Unsuscribe
-            this.redisClient.unsubscribe(market);
+            subscriber.unsubscribe(market);
           }
         } else {
           // No user
           // unsubscribe from the market
-          this.redisClient.unsubscribe(market);
+          subscriber.unsubscribe(market);
         }
       });
     }

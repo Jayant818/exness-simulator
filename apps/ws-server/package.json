@@ -13,6 +13,7 @@
   "description": "",
   "dependencies": {
     "redis": "^5.8.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "@repo/shared-redis": "1.0.0"
   }
 }

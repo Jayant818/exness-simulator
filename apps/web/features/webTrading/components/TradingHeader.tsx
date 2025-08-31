@@ -10,9 +10,9 @@ const TradingHeader = () => {
   };
 
   return (
-    <header className="bg-[#141920] border-b border-[#2a3441] h-16 flex items-center px-6 shadow-lg">
+    <header className="bg-[#141920] border-b border-[#2a3441] h-16 flex items-center justify-between px-6 shadow-lg">
       {/* Logo and Brand */}
-      <div className="flex items-center space-x-6">
+      <div className="flex items-center ">
         <div className="flex items-center space-x-2">
           <div className="text-[#ff6b00] text-2xl font-bold">exness</div>
           <div className="bg-[#ff6b00] text-white text-xs px-2 py-1 rounded font-medium">
@@ -31,14 +31,7 @@ const TradingHeader = () => {
             {user?.balance ? `$${user.balance.toLocaleString()}` : '$10,000.00'}
           </div>
         </div>
-        
-        <button className="p-2 text-gray-400 hover:text-white transition-colors">
-          <Bell size={18} />
-        </button>
-        
-        <button className="p-2 text-gray-400 hover:text-white transition-colors">
-          <Settings size={18} />
-        </button>
+      
         
         {isAuthenticated ? (
           <div className="flex items-center space-x-2">
