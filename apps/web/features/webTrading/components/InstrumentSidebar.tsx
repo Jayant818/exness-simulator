@@ -1,5 +1,5 @@
 "use client";
-import {  useEffect, useState } from 'react';
+import {  useEffect, useState, useRef } from 'react';
 import { Search, Star } from 'lucide-react';
 import { TradingInstrument } from '@repo/common';
 import axios from 'axios';
@@ -17,7 +17,7 @@ interface WsTradeData{
 }
 
 interface InstrumentSidebarProps {
-  selectedInstrument: TradingInstrument | null;
+  selectedInstrument: TradingInstrument ;
   onSelectInstrument: (instrument: TradingInstrument) => void;
   assets: TradingInstrument[];
 }
@@ -27,7 +27,13 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
   const [searchTerm, setSearchTerm] = useState('');
   // const [activeTab, setActiveTab] = useState('all');
   const [assets, setAssets] = useState<TradingInstrument[]>(fetchAssets);
+  const selectedInstrumentRef = useRef(selectedInstrument);
 
+  useEffect(() => {
+    selectedInstrumentRef.current = selectedInstrument;
+  }, [selectedInstrument]);
+
+  console.log("selected Instruments in sidebar:", selectedInstrument);
 
   useEffect(() => {
     async function fetchAndSubscribe() {
@@ -38,7 +44,7 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
         // setInitialPrice(initialAssets);
 
         const wsInstance = WsManager.getInstance();
-
+ 
         wsInstance.registerCallback('trade', (data: WsTradeData) => {
           // updatePrice(data.market, data.data.buy, data.data.sell);
           console.log("Trade data received in sidebar:", data);
@@ -59,6 +65,16 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
               return asset;
             })
           );
+
+          const currentSelectedInstrument = selectedInstrumentRef.current;
+          if (currentSelectedInstrument && currentSelectedInstrument.symbol.toLowerCase() === data.market) {
+            console.log("Match", data, currentSelectedInstrument);
+            onSelectInstrument({
+              ...currentSelectedInstrument,
+              buyPrice: String(data.data.buy),
+              sellPrice: String(data.data.sell),
+            });
+          }
         }, 'all-trades');
 
       } catch (error) {
@@ -72,10 +88,7 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
       const wsInstance = WsManager.getInstance();
       wsInstance.deRegisterCallback('trade', 'all-trades');
     };
-  }, []);
-
-
-  const getCategoryInstruments = () => [];
+  }, [onSelectInstrument]);
 
   return (
     <div className="w-80 bg-[#141920] border-r border-[#2a3441] flex flex-col h-full">
