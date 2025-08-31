@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { ChartManager } from '../../../lib/chartManager';
 
 interface KLine{
@@ -19,13 +19,19 @@ interface KLine{
 const TradeChart = ({ market }: { market: string }) => {
     
     const chartRef = useRef<HTMLDivElement>(null);
-    const chartManagerRef = useRef<ChartManager>(null);
+  const chartManagerRef = useRef<ChartManager>(null);
+  const [timeFrame, setTimeFrame] = useState('1m');
+
+  const handleTimeFrameChange = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const timeframe = (e.target as HTMLButtonElement).innerText;
+    setTimeFrame(timeframe);
+  }
 
     useEffect(() => {
         const init = async () => {
             let kLinesData: KLine[] = [];
             try {
-                const data = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/candles?symbol=${market}&interval=1m`);
+                const data = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/candles?symbol=${market}&interval=${timeFrame}`);
                 // http://localhost:3002/api/candles?symbol=ETHUSDT&interval=1m
                 kLinesData = await data.json();
 
@@ -72,7 +78,7 @@ const TradeChart = ({ market }: { market: string }) => {
                 chartManagerRef.current.destroy();
             }
         }
-    },[market])
+    },[market,timeFrame])
 
   return (
     <div className="flex-1 bg-[#0a0e13] border-r border-[#2a3441] relative">
@@ -91,9 +97,10 @@ const TradeChart = ({ market }: { market: string }) => {
       {/* Chart Controls */}
       <div className="absolute bottom-4 left-4 z-10 bg-[#141920]/90 backdrop-blur-sm rounded-lg p-2 border border-[#2a3441]">
         <div className="flex items-center space-x-2">
-          {['1m', '5m', '15m', '1h', '4h', '1D'].map((timeframe) => (
+          {['1m', '5m', '1h', '1d'].map((timeframe) => (
             <button
               key={timeframe}
+              onClick={handleTimeFrameChange}
               className="px-3 py-1 text-xs font-medium text-gray-400 hover:text-white hover:bg-[#2a3441] rounded transition-colors"
             >
               {timeframe}

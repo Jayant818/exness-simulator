@@ -33,8 +33,6 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
     selectedInstrumentRef.current = selectedInstrument;
   }, [selectedInstrument]);
 
-  console.log("selected Instruments in sidebar:", selectedInstrument);
-
   useEffect(() => {
     async function fetchAndSubscribe() {
       try {
@@ -47,7 +45,6 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
  
         wsInstance.registerCallback('trade', (data: WsTradeData) => {
           // updatePrice(data.market, data.data.buy, data.data.sell);
-          console.log("Trade data received in sidebar:", data);
 
           setAssets(prevAssets => 
             // Map over the previous assets array

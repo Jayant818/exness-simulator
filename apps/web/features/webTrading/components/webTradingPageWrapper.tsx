@@ -48,7 +48,7 @@ async function fetchAssets() {
         />
         
         <div className="flex-1 flex flex-col">
-          <TradeChart market="BTCUSDT" />
+          <TradeChart market={selectedInstrument?.symbol || "BTCUSDT"} />
         </div>
         
         <TradingPanel selectedInstrument={selectedInstrument} />

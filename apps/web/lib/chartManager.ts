@@ -6,7 +6,7 @@ import {
   ISeriesApi,
   UTCTimestamp,
   CandlestickData,
-  CandlestickSeries, // Import the series type
+  CandlestickSeries, //  Import the series type
 } from "lightweight-charts";
 
 // Interfaces for data structures remain the same (good practice)
@@ -27,8 +27,8 @@ interface UpdatedCandleData {
 }
 
 export class ChartManager {
-  private chart: IChartApi;
-  private candlestickSeries: ISeriesApi<"Candlestick">;
+  private chart: IChartApi | null;
+  private candlestickSeries: ISeriesApi<"Candlestick"> | null;
 
   constructor(
     ref: HTMLDivElement,
@@ -66,6 +66,9 @@ export class ChartManager {
 
   // The rest of the class remains the same...
   public updateData(updatedData: UpdatedCandleData): void {
+    if (!this.candlestickSeries) {
+      return;
+    }
     const newCandle: CandlestickData = {
       open: parseFloat(updatedData.open),
       high: parseFloat(updatedData.high),
@@ -77,6 +80,9 @@ export class ChartManager {
   }
 
   public destroy(): void {
-    this.chart.remove();
+    if (this.chart) {
+      this.chart.remove();
+      this.chart = null;
+    }
   }
 }
