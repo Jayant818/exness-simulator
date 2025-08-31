@@ -14,11 +14,22 @@ const WebTradingPageWrapper = () => {
   const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(null);
   const [assets, setAssets] = useState<TradingInstrument[]>([]);
   const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+
+    fetchAssets();
+    const wsInstance = WsManager.getInstance();
+    wsInstance.sendMessage({
+      type: "IDENTIFY",
+      userId: "abcd"
+    })
+  },[])
   
   if (!isAuthenticated) { 
     window.location.href = '/login';
     return;
   }
+  
 
 
 async function fetchAssets() { 
@@ -38,15 +49,7 @@ async function fetchAssets() {
   setAssets(data.assets);
 }
   
-  useEffect(() => {
 
-    fetchAssets();
-    const wsInstance = WsManager.getInstance();
-    wsInstance.sendMessage({
-      type: "IDENTIFY",
-      userId: "abcd"
-    })
-  },[])
   return (
     <div className="trading-layout flex flex-col h-screen">
       <TradingHeader />

@@ -16,6 +16,8 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
   const [stopLoss, setStopLoss] = useState('');
   const [activeTab, setActiveTab] = useState<'open' | 'pending' | 'closed'>('open');
   const [leverage, setLeverage] = useState(1);
+  const [openOrders, setOpenOrders] = useState<any[]>([]);
+  const [closedOrders, setClosedOrders] = useState<any[]>([]);
 
   const formatPrice = (price: number) => {
   // if (!selectedInstrument) return price.toFixed(3);
@@ -51,7 +53,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
         SL: orderType === 'buy' ? parseFloat(stopLoss) : undefined,
         market: selectedInstrument?.symbol || '',
       }
-      await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/trade`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/trade`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,6 +61,17 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
         },
         body: JSON.stringify(data)
       });
+
+      if (res.ok) {
+        const result = await res.json();
+        console.log('Order placed successfully:', result);
+        // Optionally, reset form fields or provide user feedback here
+        setVolume('0.01');
+        setTakeProfit('');
+        setStopLoss('');
+        setOpenOrders(prev => [...prev, data]);
+        
+      }
     } catch (err) {
       console.error('Error placing order:', err);
     }
@@ -71,9 +84,9 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
       {/* Current Price Display */}
       <div className="p-6 border-b border-[#2a3441]">
         <div className="text-center mb-6">
-          <div className="text-white text-3xl font-mono font-bold mb-2">
+          {/* <div className="text-white text-3xl font-mono font-bold mb-2">
             {selectedInstrument ? formatPrice(Number(selectedInstrument.buyPrice)) : '3,400.000'}
-          </div>
+          </div> */}
           <div className="text-gray-400 text-sm font-medium">
             {selectedInstrument?.symbol || 'XAU/USD'}
           </div>
@@ -90,7 +103,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               <span className="text-red-400 text-xs font-medium">SELL</span>
             </div>
             <div className="text-red-400 text-lg font-mono font-bold">
-              {selectedInstrument ? formatPrice(Number(selectedInstrument.buyPrice)) : '3,395.255'}
+              {selectedInstrument ? formatPrice(Number(selectedInstrument.sellPrice)) : '3,395.255'}
             </div>
           </div>
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
@@ -99,7 +112,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               <span className="text-green-400 text-xs font-medium">BUY</span>
             </div>
             <div className="text-green-400 text-lg font-mono font-bold">
-              {selectedInstrument ? formatPrice(Number(selectedInstrument.sellPrice)) : '3,396.061'}
+              {selectedInstrument ? formatPrice(Number(selectedInstrument.buyPrice)) : '3,396.061'}
             </div>
           </div>
         </div>
@@ -162,8 +175,8 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               placeholder="Not set"
               className="w-full bg-[#1a1f26] border border-[#2a3441] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-[#ff6b00] transition-colors"
             />
-            {selectedInstrument && takeProfit && orderType === 'buy' && Number(takeProfit) > Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be less than {selectedInstrument.sellPrice}</div>}
-            {selectedInstrument && takeProfit && orderType === 'sell' && Number(takeProfit) < Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be more than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && takeProfit && orderType === 'buy' && Number(takeProfit) > Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be more than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && takeProfit && orderType === 'sell' && Number(takeProfit) < Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be more than {selectedInstrument.buyPrice}</div>}
           </div>
 
           <div>
@@ -175,7 +188,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               className="w-full bg-[#1a1f26] border border-[#2a3441] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-[#ff6b00] transition-colors"
             />
             {selectedInstrument && stopLoss && orderType === "buy" && Number(stopLoss) < Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be more than {selectedInstrument.sellPrice}</div>}
-            {selectedInstrument && stopLoss && orderType === "sell" && Number(stopLoss) > Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be less than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && stopLoss && orderType === "sell" && Number(stopLoss) > Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be less than {selectedInstrument.buyPrice}</div>}
           </div>
 
           <div>
@@ -227,7 +240,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-[#2a3441]">
           <div className="flex space-x-6">
-            {['open', 'pending', 'closed'].map((tab) => (
+            {['open', 'closed'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as typeof activeTab)}
@@ -241,20 +254,75 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               </button>
             ))}
           </div>
-          <button className="text-gray-400 hover:text-white transition-colors">
-            <Settings size={16} />
-          </button>
         </div>
 
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-[#1a1f26] rounded-full flex items-center justify-center mb-4 mx-auto">
-              <span className="text-2xl">📊</span>
+        {activeTab === 'open' ? (
+          openOrders.length > 0 ? (
+            <div className="flex-1 overflow-y-auto">
+              {openOrders.map((order, index) => (
+                <div
+                  key={index}
+                  className="p-4 border-b border-[#2a3441] hover:bg-[#1a1f26] transition-colors cursor-pointer"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-sm text-white font-mono font-bold">
+                      {order.side.toUpperCase()} {order.QTY} lots
+                    </div>
+                    <div className={`text-sm font-mono font-bold ${order.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                      {order.side === 'buy' ? '+' : '-'}{selectedInstrument ? formatPrice(Number(selectedInstrument.buyPrice)) : '0.000'}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400 mb-1">Market: {order.market}</div>
+                  <div className="text-xs text-gray-400">TP: {order.T || 'N/A'} | SL: {order.SL || 'N/A'}</div>
+                </div>
+              ))}
             </div>
-            <div className="text-gray-400 text-sm mb-2">No {activeTab} positions</div>
-            <div className="text-gray-500 text-xs">Your {activeTab} trades will appear here</div>
-          </div>
-        </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[#1a1f26] rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <span className="text-2xl">📂</span>
+                </div>
+                <div className="text-gray-400 text-sm mb-2">No open positions</div>
+                <div className="text-gray-500 text-xs">Your open trades will appear here</div>
+              </div>
+            </div>
+            
+          )) : (
+            closedOrders.length > 0 ? (
+            <div className="flex-1 overflow-y-auto">
+              {closedOrders.map((order, index) => (
+                <div
+                  key={index}
+                  className="p-4 border-b border-[#2a3441] hover:bg-[#1a1f26] transition-colors cursor-pointer"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-sm text-white font-mono font-bold">
+                      {order.side.toUpperCase()} {order.QTY} lots
+                    </div>
+                    <div className={`text-sm font-mono font-bold ${order.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                      {order.side === 'buy' ? '+' : '-'}{selectedInstrument ? formatPrice(Number(selectedInstrument.buyPrice)) : '0.000'}
+                    </div>
+                  </div>
+                  <div className="text-xs
+                    text-gray-400 mb-1">Market: {order.market}</div>
+                  <div className="text-xs text-gray-400">TP: {order.TP || 'N/A'} | SL: {order.SL || 'N/A'}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-[#1a1f26] rounded-full flex items-center justify-center mb-4 mx-auto">
+                      <span className="text-2xl">📂</span>
+                    </div>
+                    <div className="text-gray-400 text-sm mb-2">No closed positions</div>
+                    <div className="text-gray-500 text-xs">Your closed trades will appear here</div>
+                  </div>
+                </div>
+              )
+            
+        )}
       </div>
     </div>
   );

@@ -86,8 +86,8 @@ const TradeChart = ({ market }: { market: string }) => {
       <div className="absolute top-4 left-4 z-10 bg-[#141920]/90 backdrop-blur-sm rounded-lg p-3 border border-[#2a3441]">
         <div className="flex items-center space-x-4">
           <div className="text-white font-bold text-lg">{market}</div>
-          <div className="text-green-400 text-sm font-medium">+2.45%</div>
-          <div className="text-gray-400 text-sm">1D</div>
+          {/* <div className="text-green-400 text-sm font-medium">+2.45%</div> */}
+          <div className="text-gray-400 text-sm">{timeFrame}</div>
         </div>
       </div>
       

@@ -60,8 +60,8 @@ async function main() {
       );
 
       const tickerData = {
-        buy: parseFloat(data.data.p) * (1 + 0.01 * 5), //+5% margin
-        sell: parseFloat(data.data.p) * (1 - 0.01 * 5), //-5% margin
+        buy: parseFloat(data.data.p) * (1 + 0.01 * 0.2),
+        sell: parseFloat(data.data.p) * (1 + 0.01 * 0.4),
         market: market,
         time: data.data.E,
       };
