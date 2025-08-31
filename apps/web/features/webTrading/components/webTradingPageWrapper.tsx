@@ -18,6 +18,8 @@ async function fetchAssets() {
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/assets`);
   const data = await res.json();
 
+  setSelectedInstrument(data.assets[0]);
+
   const wsInstance = WsManager.getInstance();
 
   data.assets.forEach((asset: TradingInstrument) => {
@@ -43,6 +45,7 @@ async function fetchAssets() {
       <div className="flex-1 flex overflow-hidden">
         <InstrumentSidebar 
           assets={assets}
+          // @ts-ignore
           selectedInstrument={selectedInstrument}
           onSelectInstrument={setSelectedInstrument}
         />

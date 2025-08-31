@@ -12,6 +12,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  balance: number;
   login: (username: string, userId: string) => void;
   logout: () => void;
   fetchBalance: () => Promise<void>;
@@ -21,22 +22,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on app start
-    const userId = localStorage.getItem('userId');
-    const username = localStorage.getItem('username');
-    
-    if (userId && username) {
-      setUser({ id: userId, username });
-      fetchUserBalance(userId);
+    const token = localStorage.getItem('token');
+    if (token) {
+      // TODO: make a call to validate token and fetch user details
+      // For now, we'll mock this
+      setUser({ id: '123', username: 'demoUser' });
+      setIsAuthenticated(true);
+      fetchUserBalance();
     }
     
     setIsLoading(false);
   }, []);
 
-  const fetchUserBalance = async (userId: string) => {
+  const fetchUserBalance = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/user/balance`, {
         credentials: 'include'
@@ -47,43 +49,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(prev => prev ? { ...prev, balance: parseFloat(data.usd_balance) } : null);
       }
     } catch (error) {
-      console.error('Failed to fetch balance for user:', userId, error);
+      console.error('Failed to fetch balance for user:', error);
     }
   };
 
-  const login = (username: string, userId: string) => {
-    const newUser = { id: userId, username };
-    setUser(newUser);
-    localStorage.setItem('userId', userId);
-    localStorage.setItem('username', username);
-    fetchUserBalance(userId);
+  const login = (token: string) => {
+    localStorage.setItem('token', token);
+    setIsAuthenticated(true);
+    fetchUserBalance();
   };
 
   const logout = async () => {
-    try {
-      // Call logout endpoint to clear server-side session
-      await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/user/logout`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-    
-    setUser(null);
-    localStorage.removeItem('userId');
-    localStorage.removeItem('username');
+    // TODO: write logout API
+    // try {
+    //   // Call logout endpoint to clear server-side session
+    //   await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/user/logout`, {
+    //     method: 'POST',
+    //     credentials: 'include'
+    //   });
+    // } catch (error) {
+    //   console.error('Logout error:', error);
+    // }
+
+    setIsAuthenticated(false);
+    localStorage.removeItem('token');
   };
 
-  const fetchBalance = () => fetchUserBalance(user?.id || '');
+  const fetchBalance = () => fetchUserBalance();
 
   const value = {
     user,
-    isAuthenticated: !!user,
+    isAuthenticated,
     isLoading,
     login,
     logout,
-    fetchBalance
+    fetchBalance,
+    balance: 1000000,
   };
 
   return (

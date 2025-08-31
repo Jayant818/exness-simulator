@@ -2,17 +2,20 @@
 import { useState } from 'react';
 import { TradingInstrument } from '@repo/common';
 import { Settings, Plus, Minus, TrendingUp, TrendingDown } from 'lucide-react';
+import { useAuth } from '../../../lib/AuthContext';
 
 interface TradingPanelProps {
   selectedInstrument: TradingInstrument | null;
 }
 
 const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
+  const { balance } = useAuth();
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const [volume, setVolume] = useState('0.01');
   const [takeProfit, setTakeProfit] = useState('');
   const [stopLoss, setStopLoss] = useState('');
   const [activeTab, setActiveTab] = useState<'open' | 'pending' | 'closed'>('open');
+  const [leverage, setLeverage] = useState(1);
 
   const formatPrice = (price: number) => {
   // if (!selectedInstrument) return price.toFixed(3);
@@ -31,6 +34,12 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
   const decrementVolume = () => {
     setVolume((prev) => Math.max(0.01, parseFloat(prev) - 0.01).toFixed(2));
   };
+
+  const marginRequired = orderType === 'buy' ?
+      selectedInstrument ?  Number(selectedInstrument.buyPrice) * parseFloat(volume) / leverage : 0
+    : selectedInstrument ? Number(selectedInstrument.sellPrice) * parseFloat(volume) / leverage : 0;
+
+  console.log("selectedInstrument", selectedInstrument);
 
   return (
     <div className="w-96 bg-[#141920] border-l border-[#2a3441] flex flex-col h-full">
@@ -128,6 +137,8 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               placeholder="Not set"
               className="w-full bg-[#1a1f26] border border-[#2a3441] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-[#ff6b00] transition-colors"
             />
+            {selectedInstrument && takeProfit && orderType === 'buy' && Number(takeProfit) > Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be less than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && takeProfit && orderType === 'sell' && Number(takeProfit) < Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be more than {selectedInstrument.sellPrice}</div>}
           </div>
 
           <div>
@@ -138,22 +149,37 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               placeholder="Not set"
               className="w-full bg-[#1a1f26] border border-[#2a3441] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-[#ff6b00] transition-colors"
             />
+            {selectedInstrument && stopLoss && orderType === "buy" && Number(stopLoss) < Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be more than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && stopLoss && orderType === "sell" && Number(stopLoss) > Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be less than {selectedInstrument.sellPrice}</div>}
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-400 mb-2 block font-medium">Leverage</label>
+            <input
+              type='range'
+              min="1"
+              value={leverage}
+              onChange={(e) => setLeverage(Number(e.target.value))}
+              max="40"
+              className="w-full"
+            />
+
           </div>
 
           <div className="bg-[#1a1f26] rounded-lg p-4 space-y-2">
             <div className="text-xs text-gray-400 font-medium mb-2">Order Details</div>
             <div className="flex justify-between text-xs">
               <span className="text-gray-400">Margin Required:</span>
-              <span className="text-white font-mono">16.98 USD</span>
+              <span className="text-white font-mono">{marginRequired} USD</span>
             </div>
-            <div className="flex justify-between text-xs">
+            {/* <div className="flex justify-between text-xs">
               <span className="text-gray-400">Leverage:</span>
               <span className="text-white font-mono">1:200</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-gray-400">Spread:</span>
               <span className="text-white font-mono">0.8 pts</span>
-            </div>
+            </div> */}
           </div>
 
           <button
@@ -161,7 +187,8 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               orderType === 'buy' 
                 ? 'bg-green-500 hover:bg-green-600' 
                 : 'bg-red-500 hover:bg-red-600'
-            }`}
+              }`}
+            disabled={!selectedInstrument || marginRequired > balance  ||  Number(takeProfit) > Number(selectedInstrument.sellPrice) || Number(stopLoss) < Number(selectedInstrument.sellPrice) }
             onClick={() => console.log(`${orderType.toUpperCase()} order placed`)}
           >
             {orderType === 'buy' ? 'BUY' : 'SELL'} {volume} lots
