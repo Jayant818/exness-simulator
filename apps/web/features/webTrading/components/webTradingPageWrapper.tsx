@@ -9,9 +9,11 @@ import TradeChart from './tradeView';
 import TradingPanel from './TradingPanel';
 
 const WebTradingPageWrapper = () => {
-  const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(
-    mockInstruments.find((instrument: TradingInstrument) => instrument.symbol === 'XAU/USD') || null
-  );
+  // const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(
+  //   mockInstruments.find((instrument: TradingInstrument) => instrument.symbol === 'XAU/USD') || null
+  // );
+
+  const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>();
 
   return (
     <div className="trading-layout flex flex-col h-screen">

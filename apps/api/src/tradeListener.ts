@@ -1,9 +1,12 @@
 import PrismaClient from "@repo/primary-db";
 import { redis, subscriber } from "@repo/shared-redis";
 import { Engine, OPEN_ORDERS } from "./engine/index.js";
-import { IOpenOrderRes } from "./routes/trade.js";
 
-async function liquidateOrder(order: OPEN_ORDERS, price: number) {
+async function liquidateOrder(
+  order: OPEN_ORDERS,
+  buyPrice: number,
+  sellPrice: number
+) {
   const userData = await redis.hGetAll(order.userId);
   if (!userData || !userData.balance) {
     console.error("User data not found for userId:", order.userId);
@@ -11,57 +14,76 @@ async function liquidateOrder(order: OPEN_ORDERS, price: number) {
   }
 
   let userBalance = JSON.parse(userData.balance);
-  let pnl: number = 0;
-  let newUsdBalance: number;
+  let pnl = 0;
+  let newUsdBalance = userBalance.usd;
+  const closePrice = order.side === "buy" ? sellPrice : buyPrice; // ✅ correct close price
 
-  if (order.leverage) {
+  if (order.leverage && order.leverage > 1) {
     // Futures / margin trade
     if (order.side === "buy") {
-      pnl = (price - order.openPrice) * order.QTY * order.leverage;
+      pnl = (closePrice - order.openPrice) * order.QTY * order.leverage;
     } else {
-      pnl = (order.openPrice - price) * order.QTY * order.leverage;
+      pnl = (order.openPrice - closePrice) * order.QTY * order.leverage;
     }
     newUsdBalance = userBalance.usd + pnl;
   } else {
     // Spot trade
-    pnl = (price - order.openPrice) * order.QTY; // ✅ keep pnl consistent
-    newUsdBalance = userBalance.usd + order.QTY * price;
+    if (order.side === "buy") {
+      pnl = (closePrice - order.openPrice) * order.QTY;
+      newUsdBalance = userBalance.usd + order.QTY * closePrice;
+    } else {
+      // Spot SELL — user sells asset, receives USD
+      pnl = (order.openPrice - closePrice) * order.QTY;
+      newUsdBalance = userBalance.usd + order.QTY * closePrice;
+    }
   }
 
   const newBalance = {
     ...userBalance,
     usd: newUsdBalance,
-    ...(!order.leverage && {
-      [order.market]: (userBalance[order.market] || 0) - order.QTY,
-    }),
   };
 
-  const positions = userData.positions ? JSON.parse(userData.positions) : {};
+  const assets = userData.assets ? JSON.parse(userData.assets) : {};
+  const borrowedAssets = userData.borrowedAssets
+    ? JSON.parse(userData.borrowedAssets)
+    : {};
 
-  if (order.leverage) {
-    positions[order.market] = (positions[order.market] || 0) - order.QTY;
+  if (!order.leverage || order.leverage <= 1) {
+    if (order.side === "buy") {
+      newBalance[order.market] = (userBalance[order.market] || 0) - order.QTY;
+    }
+    // spot sell already credited on open
+  } else {
+    if (order.side === "buy") {
+      assets[order.market] = (assets[order.market] || 0) - order.QTY;
+    } else {
+      borrowedAssets[order.market] =
+        (borrowedAssets[order.market] || 0) - order.QTY;
+    }
   }
 
   await redis.hSet(order.userId, {
     ...userData,
     balance: JSON.stringify(newBalance),
-    positions: JSON.stringify(positions),
+    assets: JSON.stringify(assets),
+    borrowedAssets: JSON.stringify(borrowedAssets),
   });
 
   // Move order to CLOSED
   Engine.OPEN_ORDERS.delete(order.orderId);
   Engine.CLOSED_ORDERS.set(order.orderId, {
     ...order,
-    closePrice: price,
+    closePrice,
     pnl,
   });
+
+  console.log(
+    `✅ Order ${order.orderId} for ${order.market} (${order.side}) closed at ${closePrice}, PnL: ${pnl}`
+  );
 }
 
 async function startTradeListening() {
-  // Get all the assests from the database
   const assets = await PrismaClient.prisma.asset.findMany();
-
-  // Get there symbols
   const assetsSymbol = assets.map((asset) => asset.symbol.toLowerCase());
 
   console.log("Starting trade listener for assets:", assetsSymbol);
@@ -75,78 +97,97 @@ async function startTradeListening() {
     const key = `trade:${data.market}`;
     await redis.hSet(key, data);
 
-    console.log(`Received trade data for ${data.market}:`, data);
+    const { market, buy: buyPrice, sell: sellPrice } = data;
 
-    // Received trade data for BTCUSDT: {
-    //   buy: 114013.18950000001,
-    //   sell: 103154.7905,
-    //   market: 'BTCUSDT',
-    //   time: 1756554167548
-    // }
-
-    const { market, buy: price } = data;
-
-    // Check if STOP LOSS is hit for any order in that market
-    // min heap so the lowest stop loss price is at the top
-    const stopLossPrices = Engine.stopLossMap.get(market);
-
-    if (stopLossPrices) {
-      while (stopLossPrices.size() > 0) {
-        const top = stopLossPrices.peek();
+    /** ---------- STOP LOSS (LONG) ---------- */
+    const stopLossLongHeap = Engine.stopLossLongMap.get(market);
+    if (stopLossLongHeap) {
+      while (stopLossLongHeap.size() > 0) {
+        const top = stopLossLongHeap.peek();
         if (!top) break;
-        if (top.price > price) break;
-
-        const { orderId } = stopLossPrices.pop()!;
-
+        if (sellPrice > top.price) break; // trigger only if current <= stopLoss
+        const { orderId } = stopLossLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
-        if (order) {
-          // Ideally this should be done in a queue
-          liquidateOrder(order, price);
+        if (order?.side === "buy") {
+          await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
     }
 
-    // For take Profit
-    const takeProfitHeap = Engine.takeProfitMap.get(market);
-
-    if (takeProfitHeap) {
-      while (takeProfitHeap.size() > 0) {
-        const top = takeProfitHeap.peek();
+    /** ---------- TAKE PROFIT (LONG) ---------- */
+    const takeProfitLongHeap = Engine.takeProfitLongMap.get(market);
+    if (takeProfitLongHeap) {
+      while (takeProfitLongHeap.size() > 0) {
+        const top = takeProfitLongHeap.peek();
         if (!top) break;
-        if (top.price < price) break; // stop if price hasn't reached TP threshold
-
-        const { orderId } = takeProfitHeap.pop()!;
+        if (sellPrice < top.price) break; // trigger only if current >= TP
+        const { orderId } = takeProfitLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
-
-        if (order) {
-          // Ideally this should also go to a queue
-          liquidateOrder(order, price);
+        if (order?.side === "buy") {
+          await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
     }
 
-    // For Leverage Orders
-    const LeveragedOrderHeap = Engine.leveragedOrderMap.get(market);
-
-    if (LeveragedOrderHeap) {
-      while (LeveragedOrderHeap.size() > 0) {
-        const top = LeveragedOrderHeap.peek();
-        if (!top || top.price < price) break;
-
-        const { orderId } = LeveragedOrderHeap.pop()!;
-
+    /** ---------- LEVERAGED LONG ---------- */
+    const leveragedLongHeap = Engine.leveragedLongMap.get(market);
+    if (leveragedLongHeap) {
+      while (leveragedLongHeap.size() > 0) {
+        const top = leveragedLongHeap.peek();
+        if (!top) break;
+        if (sellPrice > top.price) break;
+        const { orderId } = leveragedLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
-
-        if (order) {
-          liquidateOrder(order, price);
+        if (order?.side === "buy") {
+          await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
     }
 
-    // Here what we can do is First check for buy then market order then with leverage and without leverage
+    /** ---------- STOP LOSS (SHORT) ---------- */
+    const stopLossShortHeap = Engine.stopLossShortMap.get(market);
+    if (stopLossShortHeap) {
+      while (stopLossShortHeap.size() > 0) {
+        const top = stopLossShortHeap.peek();
+        if (!top) break;
+        if (buyPrice < top.price) break; // trigger only if current >= stopLoss
+        const { orderId } = stopLossShortHeap.pop()!;
+        const order = Engine.OPEN_ORDERS.get(orderId);
+        if (order?.side === "sell") {
+          await liquidateOrder(order, buyPrice, sellPrice);
+        }
+      }
+    }
 
-    // For Pending Orders , Both with and without leverage can be implemented in the same way
-    // For Limit Order - as they are not executed yet we will check if the price is less than or equal to the limit price for buy and greater than or equal to the limit price for sell
+    /** ---------- TAKE PROFIT (SHORT) ---------- */
+    const takeProfitShortHeap = Engine.takeProfitShortMap.get(market);
+    if (takeProfitShortHeap) {
+      while (takeProfitShortHeap.size() > 0) {
+        const top = takeProfitShortHeap.peek();
+        if (!top) break;
+        if (buyPrice > top.price) break; // trigger only if current <= TP
+        const { orderId } = takeProfitShortHeap.pop()!;
+        const order = Engine.OPEN_ORDERS.get(orderId);
+        if (order?.side === "sell") {
+          await liquidateOrder(order, buyPrice, sellPrice);
+        }
+      }
+    }
+
+    /** ---------- LEVERAGED SHORT ---------- */
+    const leveragedShortHeap = Engine.leveragedShortMap.get(market);
+    if (leveragedShortHeap) {
+      while (leveragedShortHeap.size() > 0) {
+        const top = leveragedShortHeap.peek();
+        if (!top) break;
+        if (buyPrice > top.price) break; // trigger only if current <= liquidation
+        const { orderId } = leveragedShortHeap.pop()!;
+        const order = Engine.OPEN_ORDERS.get(orderId);
+        if (order?.side === "sell") {
+          await liquidateOrder(order, buyPrice, sellPrice);
+        }
+      }
+    }
   });
 }
 

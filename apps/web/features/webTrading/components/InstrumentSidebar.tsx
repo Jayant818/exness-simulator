@@ -1,8 +1,9 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Star } from 'lucide-react';
 import { mockInstruments } from '@repo/common';
 import { TradingInstrument } from '@repo/common';
+import axios from 'axios';
 
 interface InstrumentSidebarProps {
   selectedInstrument: TradingInstrument | null;
@@ -13,10 +14,11 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
 
-  const filteredInstruments = mockInstruments.filter(instrument =>
-    instrument.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    instrument.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+  // const filteredInstruments = mockInstruments.filter(instrument =>
+  //   instrument.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //   instrument.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // );
 
   const getChangeIcon = (change: number) => {
     return change >= 0 ? '▲' : '▼';
@@ -29,10 +31,26 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
     { key: 'stocks', label: 'Stocks' }
   ];
 
-  const getCategoryInstruments = () => {
-    if (activeTab === 'all') return filteredInstruments;
-    return filteredInstruments.filter(instrument => instrument.category === activeTab);
-  };
+  // const getCategoryInstruments = () => {
+  //   if (activeTab === 'all') return filteredInstruments;
+  //   return filteredInstruments.filter(instrument => instrument.category === activeTab);
+  // };
+  async function fetchAssets() { 
+
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/assets`);
+      console.log(res.data);
+
+    } catch (error) {
+      console.error('Error fetching assets:', error);
+    }
+  }
+
+  useEffect(() => {
+    fetchAssets();
+  },[])
+
+  const getCategoryInstruments = () => [];
 
   return (
     <div className="w-80 bg-[#141920] border-r border-[#2a3441] flex flex-col h-full">
@@ -59,7 +77,7 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
       </div>
 
       {/* Tabs */}
-      <div className="px-4 py-3 border-b border-[#2a3441]">
+      {/* <div className="px-4 py-3 border-b border-[#2a3441]">
         <div className="flex space-x-1">
           {categories.map((category) => (
             <button
@@ -75,7 +93,7 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
             </button>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* Table Header */}
       <div className="px-4 py-3 border-b border-[#2a3441] bg-[#1a1f26]">
@@ -89,7 +107,7 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
 
       {/* Instruments List */}
       <div className="flex-1 overflow-y-auto trading-scrollbar">
-        {getCategoryInstruments().map((instrument) => (
+        {getCategoryInstruments()?.map((instrument) => (
           <div
             key={instrument.id}
             onClick={() => onSelectInstrument(instrument)}

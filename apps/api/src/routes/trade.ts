@@ -6,14 +6,12 @@ import { Engine } from "../engine/index.js";
 interface ICreateTradeRequest {
   type: "market" | "limit";
   side: "buy" | "sell";
-  leverage?: "5x" | "10x" | "20x" | "100x";
+  leverage: number;
   QTY?: number;
   TP?: number;
   SL?: number;
   market: string;
 }
-
-export type TradeType = "without leverage" | "with leverage";
 
 export interface IOpenOrderRes {
   orderId: string;
@@ -95,10 +93,37 @@ tradeRouter.post("/", async (req, res) => {
 // Get open orders
 
 tradeRouter.get("/open", async (req, res) => {
-  res.status(200).json({ orders: OPEN_ORDERS } as IGetOpenOrdersResponse);
+  // Get userId =
+  const userId = "abcd";
+
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const orderIds = Engine.userOrderMap.get(userId);
+  if (orderIds) {
+    const orders = Array.from(orderIds).map((id) => Engine.OPEN_ORDERS.get(id));
+    return res.status(200).json({ orders } as IGetOpenOrdersResponse);
+  }
+
+  res.status(200).json({ orders: [] } as IGetOpenOrdersResponse);
 });
 
 // Get Existing Closed Orders
 tradeRouter.get("/", async (req, res) => {
+  const userId = "abcd";
+
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const ordersIds = await Engine.userOrderMap.get(userId);
+
+  if (ordersIds) {
+    const orders = Array.from(ordersIds).map((id) => {
+      return Engine.CLOSED_ORDERS.get(id);
+    });
+  }
+
   res.status(200).json({ orders: [] } as IGetClosedOrdersResponse);
 });
