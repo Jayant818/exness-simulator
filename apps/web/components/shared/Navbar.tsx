@@ -76,12 +76,12 @@ const Navbar = () => {
           </>
         )}
         
-        <Link 
+        {/* <Link 
           href="/webtrading"
           className='bg-[#ff6b00] text-white px-6 py-2 rounded-lg hover:bg-[#e55a00] transition-colors font-medium'
         >
           Start Trading
-        </Link>
+        </Link> */}
       </div>
     </div>
   )

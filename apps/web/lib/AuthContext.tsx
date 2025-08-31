@@ -13,7 +13,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   balance: number;
-  login: (username: string, userId: string) => void;
+  login: (token:string) => void;
   logout: () => void;
   fetchBalance: () => Promise<void>;
 }
@@ -26,22 +26,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // TODO: make a call to validate token and fetch user details
-      // For now, we'll mock this
-      setUser({ id: '123', username: 'demoUser' });
-      setIsAuthenticated(true);
-      fetchUserBalance();
+    async function initializeAuth() { 
+      const token = localStorage.getItem('token');
+      if (token) {
+        await login(token);
+      }
+      
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
+    initializeAuth();
   }, []);
 
   const fetchUserBalance = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/user/balance`, {
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
       
       if (response.ok) {
@@ -53,10 +54,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = (token: string) => {
-    localStorage.setItem('token', token);
-    setIsAuthenticated(true);
-    fetchUserBalance();
+  const login = async (token: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/user/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setUser({ id: data.userId, username: data.username, balance: parseFloat(data.balance.usd) });
+      }
+      setIsAuthenticated(true);
+      fetchUserBalance();
+    } catch (error) {
+      console.error('Failed to login:', error);
+    }
   };
 
   const logout = async () => {
@@ -84,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     logout,
     fetchBalance,
-    balance: 1000000,
+    balance: user?.balance || 0,
   };
 
   return (

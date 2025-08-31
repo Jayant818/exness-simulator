@@ -9,8 +9,13 @@ import startTradeListening from "./tradeListener.js";
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 
 startTradeListening().catch((err) => {
   console.error("Failed to start trade listener:", err);

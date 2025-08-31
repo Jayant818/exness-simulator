@@ -38,6 +38,31 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
   const marginRequired = orderType === 'buy' ?
       selectedInstrument ?  Number(selectedInstrument.buyPrice) * parseFloat(volume) / leverage : 0
     : selectedInstrument ? Number(selectedInstrument.sellPrice) * parseFloat(volume) / leverage : 0;
+  
+  const handlePlaceOrder = async() => {
+    
+    try {
+      const data = {
+        type: "market",
+        side: orderType,
+        leverage: leverage,
+        QTY: parseFloat(volume),
+        TP: orderType === 'buy' ? parseFloat(takeProfit) : undefined,
+        SL: orderType === 'buy' ? parseFloat(stopLoss) : undefined,
+        market: selectedInstrument?.symbol || '',
+      }
+      await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/trade`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(data)
+      });
+    } catch (err) {
+      console.error('Error placing order:', err);
+    }
+  }
 
   console.log("selectedInstrument", selectedInstrument);
 
@@ -154,16 +179,18 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
           </div>
 
           <div>
-            <label className="text-xs text-gray-400 mb-2 block font-medium">Leverage</label>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs text-gray-400 font-medium">Leverage</label>
+              <span className="text-xs text-white font-mono bg-[#2a3441] px-2 py-1 rounded">1:{leverage}</span>
+            </div>
             <input
               type='range'
               min="1"
               value={leverage}
               onChange={(e) => setLeverage(Number(e.target.value))}
               max="40"
-              className="w-full"
+              className="w-full custom-range"
             />
-
           </div>
 
           <div className="bg-[#1a1f26] rounded-lg p-4 space-y-2">
@@ -189,7 +216,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
                 : 'bg-red-500 hover:bg-red-600'
               }`}
             disabled={!selectedInstrument || marginRequired > balance  ||  Number(takeProfit) > Number(selectedInstrument.sellPrice) || Number(stopLoss) < Number(selectedInstrument.sellPrice) }
-            onClick={() => console.log(`${orderType.toUpperCase()} order placed`)}
+            onClick={handlePlaceOrder}
           >
             {orderType === 'buy' ? 'BUY' : 'SELL'} {volume} lots
           </button>

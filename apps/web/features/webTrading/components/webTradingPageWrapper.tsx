@@ -7,16 +7,25 @@ import InstrumentSidebar from './InstrumentSidebar';
 import TradeChart from './tradeView';
 import TradingPanel from './TradingPanel';
 import { WsManager } from '../../../lib/WsManager';
+import { useAuth } from '../../../lib/AuthContext';
 
 
 const WebTradingPageWrapper = () => {
   const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(null);
   const [assets, setAssets] = useState<TradingInstrument[]>([]);
+  const { isAuthenticated } = useAuth();
+  
+  if (!isAuthenticated) { 
+    window.location.href = '/login';
+    return;
+  }
 
 
 async function fetchAssets() { 
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/assets`);
   const data = await res.json();
+ 
+  
 
   setSelectedInstrument(data.assets[0]);
 

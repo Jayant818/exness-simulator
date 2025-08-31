@@ -79,3 +79,43 @@
   background: var(--trading-bg-hover);
   color: var(--trading-text-primary);
 }
+
+
+.custom-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: #2a3441; /* Track color */
+  border-radius: 5px;
+  outline: none;
+  opacity: 0.8;
+  transition: opacity .2s;
+}
+
+.custom-range:hover {
+  opacity: 1;
+}
+
+/* Thumb for Webkit browsers (Chrome, Safari, Opera, Edge) */
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #ff6b00; /* Thumb color - Exness Orange */
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #141920; /* Border to match the panel background */
+  margin-top: -6px; /* Center the thumb on the track */
+}
+
+/* Thumb for Firefox */
+.custom-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #ff6b00; /* Thumb color - Exness Orange */
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #141920;
+}

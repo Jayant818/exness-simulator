@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { TradingInstrument } from "../../../packages/common/dist/types";
+import { TradingInstrument } from "../../../common/dist/types";
 
 interface PriceState {
   prices: Map<string, { buyPrice: number; sellPrice: number }>;

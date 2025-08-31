@@ -37,7 +37,7 @@ const LoginPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include cookies
+        // credentials: 'include', // Include cookies
         body: JSON.stringify(formData),
       });
 
@@ -45,8 +45,8 @@ const LoginPage = () => {
 
       if (response.ok) {
         // Use AuthContext login method
-        login(formData.username, data.userId);
-        
+        await login(data.token);
+
         // Redirect to trading platform
         router.push('/webtrading');
       } else {

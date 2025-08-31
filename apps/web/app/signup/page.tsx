@@ -69,7 +69,7 @@ const SignupPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include cookies
+        // credentials: 'include', // Include cookies
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,
@@ -80,8 +80,10 @@ const SignupPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Use AuthContext login method
-        login(formData.username, data.userId);
+
+        console.log("Signup successful, userId:", data);
+        localStorage.setItem('token', data.token);
+        await login(data.token);
         
         // Redirect to trading platform
         router.push('/webtrading');

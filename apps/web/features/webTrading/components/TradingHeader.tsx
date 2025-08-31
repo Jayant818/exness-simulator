@@ -28,7 +28,7 @@ const TradingHeader = () => {
             {isAuthenticated ? 'Live Account' : 'Demo Account'}
           </div>
           <div className="text-white text-sm font-bold">
-            {user?.balance ? `$${user.balance.toLocaleString()}` : '$10,000.00'}
+            {user?.balance ? `$${user.balance / 100}` : '$0'}
           </div>
         </div>
       
