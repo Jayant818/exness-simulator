@@ -12,7 +12,8 @@ interface InstrumentSidebarProps {
 
 const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: InstrumentSidebarProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  // const [activeTab, setActiveTab] = useState('all');
+  const [assets, setAssets] = useState<TradingInstrument[]>([]);
 
 
   // const filteredInstruments = mockInstruments.filter(instrument =>
@@ -38,8 +39,9 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
   async function fetchAssets() { 
 
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/assets`);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/assets`);
       console.log(res.data);
+      setAssets(res.data.assets);
 
     } catch (error) {
       console.error('Error fetching assets:', error);
@@ -96,75 +98,53 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument }: Instrumen
       </div> */}
 
       {/* Table Header */}
-      <div className="px-4 py-3 border-b border-[#2a3441] bg-[#1a1f26]">
-        <div className="grid grid-cols-4 gap-2 text-xs text-gray-400 font-medium">
-          <span>Symbol</span>
-          <span className="text-right">Trend</span>
-          <span className="text-right">Bid</span>
-          <span className="text-right">Ask</span>
-        </div>
-      </div>
+{/* Table Header */}
+<div className="px-4 py-3 ">
+  <table className="w-full text-xs text-gray-400 font-medium">
+    <thead>
+      <tr className="border-b border-[#2a3441]">
+        <th className="text-left py-2">Symbol</th>
+        <th className="text-right py-2">Bid</th>
+        <th className="text-right py-2">Ask</th>
+      </tr>
+    </thead>
+  </table>
+</div>
 
-      {/* Instruments List */}
-      <div className="flex-1 overflow-y-auto trading-scrollbar">
-        {getCategoryInstruments()?.map((instrument) => (
-          <div
-            key={instrument.id}
-            onClick={() => onSelectInstrument(instrument)}
-            className={`px-4 py-3 border-b border-[#2a3441] cursor-pointer hover:bg-[#1a1f26] transition-colors ${
-              selectedInstrument?.id === instrument.id ? 'bg-[#1a1f26] border-l-2 border-l-[#ff6b00]' : ''
-            }`}
-          >
-            <div className="grid grid-cols-4 gap-2 items-center">
-              {/* Symbol */}
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${instrument.change >= 0 ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                <div>
-                  <div className="text-white text-sm font-medium">
-                    {instrument.symbol}
-                  </div>
-                </div>
-              </div>
+{/* Instruments List */}
+<div className="flex-1 overflow-y-auto trading-scrollbar">
+  <table className="w-full text-sm">
+    <tbody>
+      {assets?.map((instrument) => (
+        <tr
+          key={instrument.symbol}
+          onClick={() => onSelectInstrument(instrument)}
+          className={`cursor-pointer hover:bg-[#1a1f26] transition-colors ${
+            selectedInstrument?.symbol === instrument.symbol
+              ? 'bg-[#1a1f26] border-l-2 border-l-[#ff6b00]'
+              : ''
+          }`}
+        >
+          {/* Symbol */}
+          <td className="px-4 py-3 text-white font-medium">
+            {instrument.symbol}
+          </td>
 
-              {/* Trend */}
-              <div className="text-right">
-                <span className={`text-sm font-bold ${instrument.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {getChangeIcon(instrument.change)}
-                </span>
-              </div>
+          {/* Bid */}
+          <td className="px-4 py-3 text-right text-green-400 font-mono">
+            {Number(instrument.buyPrice).toFixed(instrument.decimals)}
+          </td>
 
-              {/* Bid */}
-              <div className="text-right">
-                <span className="text-white text-sm font-mono">
-                  {instrument.bid.toFixed(instrument.category === 'forex' ? 5 : 2)}
-                </span>
-              </div>
+          {/* Ask */}
+          <td className="px-4 py-3 text-right text-red-400 font-mono">
+            {Number(instrument.sellPrice).toFixed(instrument.decimals)}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
 
-              {/* Ask */}
-              <div className="text-right">
-                <span className="text-white text-sm font-mono">
-                  {instrument.ask.toFixed(instrument.category === 'forex' ? 5 : 2)}
-                </span>
-              </div>
-            </div>
-
-            {/* Additional row with change info */}
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              <div className="col-span-2">
-                <span className="text-xs text-gray-400">{instrument.name}</span>
-              </div>
-              <div className="col-span-2 text-right">
-                <span className={`text-xs font-medium ${instrument.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {instrument.change >= 0 ? '+' : ''}{instrument.change.toFixed(instrument.category === 'forex' ? 5 : 2)}
-                </span>
-                <span className={`text-xs ml-2 font-medium ${instrument.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  ({instrument.change >= 0 ? '+' : ''}{instrument.changePercent.toFixed(2)}%)
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

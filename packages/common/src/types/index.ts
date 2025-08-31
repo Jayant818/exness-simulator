@@ -1,12 +1,8 @@
 export interface TradingInstrument {
-  id: string;
-  symbol: string;
+  buyPrice: string;
+  decimals: number;
+  img_url: string;
   name: string;
-  price: number;
-  // change: number;
-  // changePercent: number;
-  // bid: number;
-  // ask: number;
-  // volume?: number;
-  // category: "crypto" | "forex" | "stocks" | "commodities";
+  sellPrice: string;
+  symbol: string;
 }

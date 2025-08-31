@@ -9,6 +9,7 @@ import {
 } from "@repo/common";
 
 import { publisher, subscriber } from "@repo/shared-redis";
+import { publishDataToPubsub } from "./publishData.js";
 
 interface msgType {
   type: "SUBSCRIBE" | "UNSUBSCRIBE";
@@ -31,6 +32,8 @@ async function main() {
       handleUnsubscribeMarket(data.market);
     }
   });
+
+  await publishDataToPubsub();
 
   async function handleSubscribeMarket(market: string) {
     console.log("subscribing to the market");

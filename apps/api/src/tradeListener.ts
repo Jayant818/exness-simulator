@@ -94,7 +94,8 @@ async function startTradeListening() {
 
   subscriber.subscribe(assetsSymbol, async (message, channel) => {
     const data = JSON.parse(message);
-    const key = `trade:${data.market}`;
+    console.log("Received trade data on channel:", channel, data);
+    const key = `trade:${data.market.toLowerCase()}`;
     await redis.hSet(key, data);
 
     const { market, buy: buyPrice, sell: sellPrice } = data;
