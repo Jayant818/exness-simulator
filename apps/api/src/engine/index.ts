@@ -15,7 +15,7 @@ interface HeapNode {
   price: number; // scaled by SCALE
 }
 
-type Balance = {
+export type Balance = {
   usd: number; // scaled (cents)
   locked_usd: number; // scaled
   [asset: string]: any;

@@ -8,12 +8,13 @@ import TradeChart from './tradeView';
 import TradingPanel from './TradingPanel';
 import { WsManager } from '../../../lib/WsManager';
 import { useAuth } from '../../../lib/AuthContext';
+import { withAuth } from '../../../components/shared/withAuth';
 
 
 const WebTradingPageWrapper = () => {
   const [selectedInstrument, setSelectedInstrument] = useState<TradingInstrument | null>(null);
   const [assets, setAssets] = useState<TradingInstrument[]>([]);
-  const { isAuthenticated } = useAuth();
+  // const { isAuthenticated } = useAuth();
 
   useEffect(() => {
 
@@ -25,10 +26,10 @@ const WebTradingPageWrapper = () => {
     })
   },[])
   
-  if (!isAuthenticated && window) { 
-    window.location.href = '/login';
-    return;
-  }
+  // if (!isAuthenticated && window) { 
+  //   window.location.href = '/login';
+  //   return;
+  // }
   
 
 
@@ -52,7 +53,7 @@ async function fetchAssets() {
 
   return (
     <div className="trading-layout flex flex-col h-screen">
-      <TradingHeader />
+      {/* <TradingHeader /> */}
       
       <div className="flex-1 flex overflow-hidden">
         <InstrumentSidebar 
@@ -72,4 +73,4 @@ async function fetchAssets() {
   );
 };
 
-export default WebTradingPageWrapper;
+export default withAuth(WebTradingPageWrapper);

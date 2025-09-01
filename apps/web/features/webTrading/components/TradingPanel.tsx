@@ -129,7 +129,6 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
     }
   }
 
-  console.log("selectedInstrument", selectedInstrument);
 
   return (
     <div className="w-96 bg-[#141920] border-l border-[#2a3441] flex flex-col h-full">

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import ConditionalNavbar from "../components/shared/ConditionalNavbar";
 import { AuthProvider } from "../lib/AuthContext";
+import Navbar from "../components/shared/Navbar";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} bg-[#0a0e13] h-screen`}>
         <AuthProvider>
-          <ConditionalNavbar />
+          <Navbar/>
           <main className="h-full">
             {children}
           </main>

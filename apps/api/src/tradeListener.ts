@@ -1,8 +1,8 @@
 import PrismaClient from "@repo/primary-db";
 import { redis, subscriber } from "@repo/shared-redis";
-import { Engine, OPEN_ORDERS, p } from "./engine/index.js";
+import { Engine, OPEN_ORDERS, p, u } from "./engine/index.js";
 
-sync function liquidateOrder(
+async function liquidateOrder(
   order: OPEN_ORDERS,
   buyPrice: number, // scaled
   sellPrice: number // scaled

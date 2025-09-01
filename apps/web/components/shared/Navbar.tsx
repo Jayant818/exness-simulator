@@ -6,12 +6,8 @@ import { TrendingUp, User, LogOut } from 'lucide-react'
 import { useAuth } from '../../lib/AuthContext'
 
 const Navbar = () => {
-  const { user, isAuthenticated, logout } = useAuth();
-
-  const handleLogout = async () => {
-    await logout();
-  };
-
+  const { user, isAuthenticated, logout, balance } = useAuth();
+  console.log({user, isAuthenticated, balance});
   return (
     <div className='w-full flex justify-between items-center p-6 border-b border-[#2a3441] bg-[#141920]'>
       <Link href="/" className="flex items-center space-x-3">
@@ -24,39 +20,24 @@ const Navbar = () => {
         </div>
       </Link>
       
-      {/* <nav className="hidden md:flex items-center space-x-8">
-        <Link href="/" className="text-gray-300 hover:text-white transition-colors font-medium">
-          Home
-        </Link>
-        <Link href="/webtrading" className="text-gray-300 hover:text-[#ff6b00] transition-colors font-medium">
-          Trading Platform
-        </Link>
-        <Link href="/markets" className="text-gray-300 hover:text-white transition-colors font-medium">
-          Markets
-        </Link>
-        <Link href="/education" className="text-gray-300 hover:text-white transition-colors font-medium">
-          Education
-        </Link>
-      </nav> */}
-      
       <div className="flex items-center space-x-4">
         {isAuthenticated ? (
           <>
             <div className="flex items-center space-x-3 text-gray-300">
               <User size={18} />
               <span className="font-medium">{user?.username}</span>
-              {user?.balance && (
+              {balance && (
                 <span className="text-green-400 font-mono">
-                  ${user.balance.toLocaleString()}
+                  ${(Number(balance)/100).toFixed(2)}
                 </span>
               )}
             </div>
             <button 
-              onClick={handleLogout}
+              onClick={logout}
               className='flex items-center space-x-2 bg-[#1a1f26] text-white px-4 py-2 rounded-lg hover:bg-[#2a3441] transition-colors border border-[#2a3441]'
             >
               <LogOut size={16} />
-              <span>Sign Out</span>
+              <span>Logout</span>
             </button>
           </>
         ) : (

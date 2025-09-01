@@ -8,11 +8,17 @@ interface User {
   balance?: number;
 }
 
+export type Balance = {
+  usd: number; // scaled (cents)
+  locked_usd: number; // scaled
+  [asset: string]: any;
+};
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  balance: number;
+  balance: Balance | null;
   login: (token:string) => void;
   logout: () => void;
   fetchBalance: () => Promise<void>;

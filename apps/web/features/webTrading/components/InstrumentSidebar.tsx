@@ -65,7 +65,6 @@ const InstrumentSidebar = ({ selectedInstrument, onSelectInstrument, assets: fet
 
           const currentSelectedInstrument = selectedInstrumentRef.current;
           if (currentSelectedInstrument && currentSelectedInstrument.symbol.toLowerCase() === data.market) {
-            console.log("Match", data, currentSelectedInstrument);
             onSelectInstrument({
               ...currentSelectedInstrument,
               buyPrice: String(data.data.buy),
