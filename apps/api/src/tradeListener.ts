@@ -1,6 +1,6 @@
 import PrismaClient from "@repo/primary-db";
 import { redis, subscriber } from "@repo/shared-redis";
-import { Engine, OPEN_ORDERS } from "./engine/index.js";
+import { Engine, OPEN_ORDERS, p } from "./engine/index.js";
 
 async function liquidateOrder(
   order: OPEN_ORDERS,
@@ -20,21 +20,24 @@ async function liquidateOrder(
 
   if (order.leverage && order.leverage > 1) {
     // Futures / margin trade
+    // don't multiple it with leverage here as pnl is already magnified by leverage
     if (order.side === "buy") {
-      pnl = (closePrice - order.openPrice) * order.QTY * order.leverage;
+      pnl = (closePrice - order.openPrice) * order.QTY;
     } else {
-      pnl = (order.openPrice - closePrice) * order.QTY * order.leverage;
+      pnl = (order.openPrice - closePrice) * order.QTY;
     }
     newUsdBalance = userBalance.usd + pnl;
   } else {
     // Spot trade
     if (order.side === "buy") {
       pnl = (closePrice - order.openPrice) * order.QTY;
+      // need to add also the margin value also
       newUsdBalance = userBalance.usd + order.QTY * closePrice;
     } else {
-      // Spot SELL — user sells asset, receives USD
+      // Spot SELL — user sells asset that he already own, receives USD
+      // the only thing changed is PNL and user gets his asset back
       pnl = (order.openPrice - closePrice) * order.QTY;
-      newUsdBalance = userBalance.usd + order.QTY * closePrice;
+      newUsdBalance = userBalance.usd + pnl;
     }
   }
 
@@ -94,9 +97,9 @@ async function startTradeListening() {
 
   subscriber.subscribe(assetsSymbol, async (message, channel) => {
     const data = JSON.parse(message);
-    // console.log("Received trade data on channel:", channel, data);
     const key = `trade:${data.market.toLowerCase()}`;
-    await redis.hSet(key, data);
+    await redis.set(key, JSON.stringify(data));
+    // console.log("Received trade data on channel:", channel, data);
 
     const { market, buy, sell } = data;
     let buyPrice = p(buy);
@@ -109,13 +112,18 @@ async function startTradeListening() {
       while (stopLossLongHeap.size() > 0) {
         const top = stopLossLongHeap.peek();
         if (!top) break;
-        console.log("Top SL Long:", top);
-        console.log("Current Buy Price:", buyPrice);
+        // console.log("Top SL Long:", top);
+        // console.log("Current Buy Price:", buyPrice);
         if (buyPrice > top.price) break; // trigger only if current <= stopLoss
         const { orderId } = stopLossLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "buy") {
-          console.log("Liquidating stop loss long order:", orderId);
+          console.log(
+            "Liquidating stop loss long order:",
+            orderId,
+            top.price,
+            buyPrice
+          );
           await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
@@ -134,7 +142,12 @@ async function startTradeListening() {
         const { orderId } = takeProfitLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "buy") {
-          console.log("Liquidating take profit long order:", orderId);
+          console.log(
+            "Liquidating take profit long order:",
+            orderId,
+            top.price,
+            buyPrice
+          );
           await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
@@ -147,10 +160,16 @@ async function startTradeListening() {
       while (leveragedLongHeap.size() > 0) {
         const top = leveragedLongHeap.peek();
         if (!top) break;
-        if (sellPrice > top.price) break;
+        if (buyPrice > top.price) break;
         const { orderId } = leveragedLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "buy") {
+          console.log(
+            "Liquidating leveraged long order:",
+            orderId,
+            top.price,
+            buyPrice
+          );
           await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
@@ -163,7 +182,7 @@ async function startTradeListening() {
       while (stopLossShortHeap.size() > 0) {
         const top = stopLossShortHeap.peek();
         if (!top) break;
-        if (buyPrice < top.price) break; // trigger only if current >= stopLoss
+        if (sellPrice < top.price) break; // trigger only if current >= stopLoss
         const { orderId } = stopLossShortHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "sell") {
@@ -179,7 +198,7 @@ async function startTradeListening() {
       while (takeProfitShortHeap.size() > 0) {
         const top = takeProfitShortHeap.peek();
         if (!top) break;
-        if (buyPrice > top.price) break; // trigger only if current <= TP
+        if (sellPrice > top.price) break; // trigger only if current <= TP
         const { orderId } = takeProfitShortHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "sell") {
@@ -195,7 +214,7 @@ async function startTradeListening() {
       while (leveragedShortHeap.size() > 0) {
         const top = leveragedShortHeap.peek();
         if (!top) break;
-        if (buyPrice > top.price) break; // trigger only if current <= liquidation
+        if (sellPrice > top.price) break; // trigger only if current <= liquidation
         const { orderId } = leveragedShortHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "sell") {

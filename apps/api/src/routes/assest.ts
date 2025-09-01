@@ -26,9 +26,7 @@ assetRouter.get("/", async (req, res) => {
 
   const assets = await Promise.all(
     data.map(async (asset) => {
-      const tradeData = await redis.hGetAll(
-        `trade:${asset.symbol.toLowerCase()}`
-      );
+      const tradeData = await redis.get(`trade:${asset.symbol.toLowerCase()}`);
 
       // console.log("Trade data for", asset.symbol.toLowerCase(), tradeData);
 
@@ -36,11 +34,13 @@ assetRouter.get("/", async (req, res) => {
         return;
       }
 
+      const { buy, sell } = JSON.parse(tradeData);
+
       return {
         name: asset.name,
         symbol: asset.symbol,
-        buyPrice: tradeData.buy,
-        sellPrice: tradeData.sell,
+        buyPrice: buy,
+        sellPrice: sell,
         decimals: asset.decimals,
         img_url: asset.imgUrl ?? "",
       };

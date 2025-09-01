@@ -114,12 +114,14 @@ export class Engine {
     userId: string;
     leverage: number; // 1 means spot/no-leverage
   }) {
-    const tradeData = await redis.hGetAll(`trade:${data.market}`);
-    if (!tradeData || !tradeData.buy || !tradeData.sell) {
+    const tradeData = await redis.get(`trade:${data.market}`);
+    if (!tradeData) {
       throw new Error("Market data not found");
     }
-    const buyPriceScaled = p(tradeData.buy);
-    const sellPriceScaled = p(tradeData.sell);
+
+    const { buy, sell } = JSON.parse(tradeData);
+    const buyPriceScaled = p(buy);
+    const sellPriceScaled = p(sell);
 
     let user = await this.getUserData(data.userId);
     let bal = user.balance as Balance;
@@ -136,14 +138,15 @@ export class Engine {
     if (data.side === "buy") {
       amountToLock =
         leverageUsed > 1
-          ? Math.floor((data.QTY * buyPriceScaled) / leverageUsed)
-          : data.QTY * buyPriceScaled;
+          ? Math.floor((data.QTY * sellPriceScaled) / leverageUsed)
+          : data.QTY * sellPriceScaled;
+
       await this.LockBalance({ userId: data.userId, amountToLock });
     } else {
       // sell
       if (leverageUsed > 1) {
         // short with margin: lock USD margin computed using sell price (we'll use sellPriceScaled)
-        amountToLock = Math.floor((data.QTY * sellPriceScaled) / leverageUsed);
+        amountToLock = Math.floor((data.QTY * buyPriceScaled) / leverageUsed);
         await this.LockBalance({ userId: data.userId, amountToLock });
       } else {
         // spot sell: ensure user has enough asset quantity (no USD lock)
@@ -175,14 +178,13 @@ export class Engine {
           userId: data.userId,
           market: data.market,
           createdAt: new Date().toISOString(),
-          openPrice: buyPriceScaled,
+          openPrice: sellPriceScaled,
         });
 
         if (!this.userOrderMap.has(data.userId))
           this.userOrderMap.set(data.userId, new Set());
         this.userOrderMap.get(data.userId)!.add(orderId);
 
-        console.log("Buy order", data);
         console.log("this.OPEN_ORDERS", this.OPEN_ORDERS);
 
         if (data.SL !== undefined && data.SL > 0) {
@@ -209,7 +211,7 @@ export class Engine {
         // consume locked USD -> credit assets
         const newBal: Balance = {
           ...bal,
-          locked_usd: bal.locked_usd - data.QTY * buyPriceScaled,
+          locked_usd: bal.locked_usd - data.QTY * sellPriceScaled,
         };
 
         const assets = user.assets || {};
@@ -217,8 +219,6 @@ export class Engine {
           side: "long",
           qty: (assets[data.market]?.qty || 0) + data.QTY,
           leverage: 1,
-          entryPrice: buyPriceScaled,
-          margin: data.QTY * buyPriceScaled,
         };
 
         await this.updateUserData(data.userId, { balance: newBal, assets });
@@ -257,14 +257,14 @@ export class Engine {
         const totalQty = Number(data.QTY) || 0;
         if (!totalQty) throw new Error("Invalid qty");
 
-        const borrowedAmount = totalQty * buyPriceScaled;
+        const borrowedAmount = totalQty * sellPriceScaled;
         const margin = Math.floor(borrowedAmount / leverageUsed);
         if (margin > bal.usd + bal.locked_usd)
           throw new Error("Insufficient margin");
 
         this.OPEN_ORDERS.set(orderId, {
           market: data.market,
-          openPrice: buyPriceScaled,
+          openPrice: sellPriceScaled,
           orderId,
           QTY: totalQty,
           leverage: leverageUsed,
@@ -308,7 +308,7 @@ export class Engine {
           );
         this.leveragedLongMap
           .get(data.market)!
-          .push({ orderId, price: buyPriceScaled });
+          .push({ orderId, price: sellPriceScaled });
 
         // TODO: as user buy long with leverage, Ideally we should track assets acquired thorugh leverage seperately
         const assets = user.assets || {};
@@ -316,7 +316,7 @@ export class Engine {
           side: "long",
           qty: totalQty,
           leverage: leverageUsed,
-          entryPrice: buyPriceScaled,
+          entryPrice: sellPriceScaled,
           margin,
         };
 
@@ -381,12 +381,12 @@ export class Engine {
           userId: data.userId,
           market: data.market,
           createdAt: new Date().toISOString(),
-          openPrice: sellPriceScaled,
+          openPrice: buyPriceScaled,
           leverage: leverageUsed,
           margin:
             leverageUsed > 1
-              ? Math.floor((data.QTY * sellPriceScaled) / leverageUsed)
-              : data.QTY * sellPriceScaled,
+              ? Math.floor((data.QTY * buyPriceScaled) / leverageUsed)
+              : data.QTY * buyPriceScaled,
         });
 
         if (!this.userOrderMap.has(data.userId))
@@ -424,7 +424,7 @@ export class Engine {
           );
         this.leveragedShortMap
           .get(data.market)!
-          .push({ orderId, price: sellPriceScaled });
+          .push({ orderId, price: buyPriceScaled });
 
         // now settle depending on leverage or spot:
         const assets = user.assets || {};
@@ -439,15 +439,15 @@ export class Engine {
             side: assets[data.market]?.side || "long",
             qty: (assets[data.market]?.qty || 0) - data.QTY,
             leverage: 1,
-            entryPrice: assets[data.market]?.entryPrice || sellPriceScaled,
+            entryPrice: assets[data.market]?.entryPrice || buyPriceScaled,
             margin: Math.max(
               0,
-              (assets[data.market]?.margin || 0) - data.QTY * sellPriceScaled
+              (assets[data.market]?.margin || 0) - data.QTY * buyPriceScaled
             ),
           };
 
           balanceAfter.usd =
-            (balanceAfter.usd || 0) + data.QTY * sellPriceScaled;
+            (balanceAfter.usd || 0) + data.QTY * buyPriceScaled;
           // no locked_usd change because we didn't lock USD for sells
         } else {
           // LEVERAGED SHORT: we recorded margin earlier by LockBalance (USD locked)

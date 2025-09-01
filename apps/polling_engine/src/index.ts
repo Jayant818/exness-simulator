@@ -60,8 +60,9 @@ async function main() {
       );
 
       const tickerData = {
-        buy: parseFloat(data.data.p) * (1 + 0.01 * 0.2),
-        sell: parseFloat(data.data.p) * (1 + 0.01 * 0.4),
+        // I will sell you in more but buy in less
+        buy: parseFloat(data.data.p) - parseFloat(data.data.p) * 0.01 * 0.4,
+        sell: parseFloat(data.data.p) + parseFloat(data.data.p) * 0.01 * 0.4,
         market: market,
         time: data.data.E,
       };
