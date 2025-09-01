@@ -55,13 +55,13 @@ async function liquidateOrder(
     if (order.side === "buy") {
       newBalance[order.market] = (userBalance[order.market] || 0) - order.QTY;
     }
-    // spot sell already credited on open
   } else {
+    // For leveraged trades, adjust borrowedAssets
     if (order.side === "buy") {
-      assets[order.market] = (assets[order.market] || 0) - order.QTY;
-    } else {
       borrowedAssets[order.market] =
-        (borrowedAssets[order.market] || 0) - order.QTY;
+        (borrowedAssets[order.market] || 0) + order.QTY;
+    } else {
+      borrowedAssets[order.market] = (borrowedAssets[order.market] || 0) - order.QTY;
     }
   }
 

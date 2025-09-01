@@ -22,7 +22,6 @@ assetRouter.get("/", async (req, res) => {
     return res.status(200).json({ assets: [] });
   }
 
-  // const tradeData = await redis.hGetAll(`trade:${data.symbol.toLowerCase()}`);
 
   const assets = await Promise.all(
     data.map(async (asset) => {

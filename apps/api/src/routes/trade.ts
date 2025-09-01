@@ -89,10 +89,6 @@ tradeRouter.post("/", authMiddleware, async (req: AuthRequest, res) => {
       .json({ message: "Unauthorized", error: "User ID not found in token" });
   }
 
-  const tradeData = await redis.hGetAll(
-    `trade:${req.body.market.toLowerCase()}`
-  );
-
   const { type, leverage, QTY, TP, SL, market, side } =
     req.body as ICreateTradeRequest;
 

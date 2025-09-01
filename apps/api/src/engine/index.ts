@@ -114,7 +114,10 @@ export class Engine {
     userId: string;
     leverage: number; // 1 means spot/no-leverage
   }) {
-    const tradeData = await redis.get(`trade:${data.market}`);
+    const market = data.market.toLowerCase();
+    console.log("Processing order for market:", market);
+    const tradeData = await redis.get(`trade:${market}`);
+    console.log("tradeData", tradeData);
     if (!tradeData) {
       throw new Error("Market data not found");
     }
@@ -310,17 +313,16 @@ export class Engine {
           .get(data.market)!
           .push({ orderId, price: sellPriceScaled });
 
-        // TODO: as user buy long with leverage, Ideally we should track assets acquired thorugh leverage seperately
-        const assets = user.assets || {};
-        assets[data.market] = {
+        // TODO : It will throw error if we we buy and sell for same market
+        const borrowedAssets = user.borrowedAssets || {};
+        borrowedAssets[data.market] = {
           side: "long",
-          qty: totalQty,
+          qty: totalQty + (borrowedAssets[data.market]?.qty || 0),
           leverage: leverageUsed,
           entryPrice: sellPriceScaled,
-          margin,
         };
 
-        await this.updateUserData(data.userId, { assets });
+        await this.updateUserData(data.userId, { borrowedAssets });
         return orderId;
       }
 
