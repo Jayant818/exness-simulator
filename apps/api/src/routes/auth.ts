@@ -4,6 +4,7 @@ import { redis } from "@repo/shared-redis";
 import jwt from "jsonwebtoken";
 import PrismaClient from "@repo/primary-db";
 import bcrypt from "bcrypt";
+import { authMiddleware, AuthRequest } from "./trade.js";
 
 export const authRouter = Router();
 
@@ -137,4 +138,20 @@ authRouter.post("/signup", async (req, res) => {
   res.status(201).json({ userId: user.id, token: token });
 });
 
-authRouter.get("/balance", (req, res) => {});
+authRouter.get("/balance", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const data = await redis.hGetAll(userId);
+
+  if (!data || !data.balance) {
+    return res.status(404).json({ error: "Balance not found" });
+  }
+
+  const balance: IGetUserBalanceResponse = JSON.parse(data.balance);
+
+  res.status(200).json(balance);
+});

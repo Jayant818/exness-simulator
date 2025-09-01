@@ -16,7 +16,7 @@ async function liquidateOrder(
   let userBalance = JSON.parse(userData.balance);
   let pnl = 0;
   let newUsdBalance = userBalance.usd;
-  const closePrice = order.side === "buy" ? sellPrice : buyPrice; // ✅ correct close price
+  const closePrice = order.side === "buy" ? buyPrice : sellPrice; // ✅ correct close price
 
   if (order.leverage && order.leverage > 1) {
     // Futures / margin trade
@@ -86,7 +86,7 @@ async function startTradeListening() {
   const assets = await PrismaClient.prisma.asset.findMany();
   const assetsSymbol = assets.map((asset) => asset.symbol.toLowerCase());
 
-  console.log("Starting trade listener for assets:", assetsSymbol);
+  // console.log("Starting trade listener for assets:", assetsSymbol);
   if (!assetsSymbol.length) {
     console.warn("No assets found in the database to listen for trades.");
     return;
@@ -94,7 +94,7 @@ async function startTradeListening() {
 
   subscriber.subscribe(assetsSymbol, async (message, channel) => {
     const data = JSON.parse(message);
-    console.log("Received trade data on channel:", channel, data);
+    // console.log("Received trade data on channel:", channel, data);
     const key = `trade:${data.market.toLowerCase()}`;
     await redis.hSet(key, data);
 
@@ -103,13 +103,15 @@ async function startTradeListening() {
     /** ---------- STOP LOSS (LONG) ---------- */
     const stopLossLongHeap = Engine.stopLossLongMap.get(market);
     if (stopLossLongHeap) {
+      console.log("Processing stop loss long orders for", market);
       while (stopLossLongHeap.size() > 0) {
         const top = stopLossLongHeap.peek();
         if (!top) break;
-        if (sellPrice > top.price) break; // trigger only if current <= stopLoss
+        if (buyPrice > top.price) break; // trigger only if current <= stopLoss
         const { orderId } = stopLossLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "buy") {
+          console.log("Liquidating stop loss long order:", orderId);
           await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
@@ -117,14 +119,18 @@ async function startTradeListening() {
 
     /** ---------- TAKE PROFIT (LONG) ---------- */
     const takeProfitLongHeap = Engine.takeProfitLongMap.get(market);
+
     if (takeProfitLongHeap) {
+      console.log("Processing take profit long orders for", market);
+
       while (takeProfitLongHeap.size() > 0) {
         const top = takeProfitLongHeap.peek();
         if (!top) break;
-        if (sellPrice < top.price) break; // trigger only if current >= TP
+        if (buyPrice < top.price) break; // trigger only if current >= TP
         const { orderId } = takeProfitLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
         if (order?.side === "buy") {
+          console.log("Liquidating take profit long order:", orderId);
           await liquidateOrder(order, buyPrice, sellPrice);
         }
       }
@@ -133,6 +139,7 @@ async function startTradeListening() {
     /** ---------- LEVERAGED LONG ---------- */
     const leveragedLongHeap = Engine.leveragedLongMap.get(market);
     if (leveragedLongHeap) {
+      console.log("Processing leveraged long orders for", market);
       while (leveragedLongHeap.size() > 0) {
         const top = leveragedLongHeap.peek();
         if (!top) break;
@@ -148,6 +155,7 @@ async function startTradeListening() {
     /** ---------- STOP LOSS (SHORT) ---------- */
     const stopLossShortHeap = Engine.stopLossShortMap.get(market);
     if (stopLossShortHeap) {
+      console.log("Processing stop loss short orders for", market);
       while (stopLossShortHeap.size() > 0) {
         const top = stopLossShortHeap.peek();
         if (!top) break;
@@ -163,6 +171,7 @@ async function startTradeListening() {
     /** ---------- TAKE PROFIT (SHORT) ---------- */
     const takeProfitShortHeap = Engine.takeProfitShortMap.get(market);
     if (takeProfitShortHeap) {
+      console.log("Processing take profit short orders for", market);
       while (takeProfitShortHeap.size() > 0) {
         const top = takeProfitShortHeap.peek();
         if (!top) break;
@@ -178,6 +187,7 @@ async function startTradeListening() {
     /** ---------- LEVERAGED SHORT ---------- */
     const leveragedShortHeap = Engine.leveragedShortMap.get(market);
     if (leveragedShortHeap) {
+      console.log("Processing leveraged short orders for", market);
       while (leveragedShortHeap.size() > 0) {
         const top = leveragedShortHeap.peek();
         if (!top) break;

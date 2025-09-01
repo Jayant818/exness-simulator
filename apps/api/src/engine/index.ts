@@ -182,6 +182,9 @@ export class Engine {
           this.userOrderMap.set(data.userId, new Set());
         this.userOrderMap.get(data.userId)!.add(orderId);
 
+        console.log("Buy order", data);
+        console.log("this.OPEN_ORDERS", this.OPEN_ORDERS);
+
         if (data.SL !== undefined) {
           if (!this.stopLossLongMap.has(data.market))
             this.stopLossLongMap.set(

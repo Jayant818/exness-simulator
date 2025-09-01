@@ -44,7 +44,9 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (response.ok) {
+        console.log('Login successful:', data);
         // Use AuthContext login method
+        localStorage.setItem('token', data.token);
         await login(data.token);
 
         // Redirect to trading platform

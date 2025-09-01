@@ -2,7 +2,7 @@ import { Bell, Settings, User, ChevronDown, LogOut } from 'lucide-react';
 import { useAuth } from '../../../lib/AuthContext';
 
 const TradingHeader = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout,balance } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -28,7 +28,7 @@ const TradingHeader = () => {
             {isAuthenticated ? 'Live Account' : 'Demo Account'}
           </div>
           <div className="text-white text-sm font-bold">
-            {user?.balance ? `$${user.balance / 100}` : '$0'}
+            {balance ? `$${(balance / 100).toFixed(3)}` : '$0'}
           </div>
         </div>
       

@@ -24,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [balance, setBalance] = useState(0);
 
   useEffect(() => {
     async function initializeAuth() { 
@@ -31,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (token) {
         await login(token);
       }
-      
+      setIsAuthenticated(true);
       setIsLoading(false);
     }
     initializeAuth();
@@ -47,7 +48,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (response.ok) {
         const data = await response.json();
-        setUser(prev => prev ? { ...prev, balance: parseFloat(data.usd_balance) } : null);
+
+        setBalance(parseFloat(data.usd));
+
+        console.log("data",data)
+        console.log('Fetched balance:', data.usd);
       }
     } catch (error) {
       console.error('Failed to fetch balance for user:', error);
@@ -99,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     logout,
     fetchBalance,
-    balance: user?.balance || 0,
+    balance: balance || 0,
   };
 
   return (

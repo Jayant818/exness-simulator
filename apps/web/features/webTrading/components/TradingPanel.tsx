@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TradingInstrument } from '@repo/common';
 import { Settings, Plus, Minus, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuth } from '../../../lib/AuthContext';
@@ -9,7 +9,7 @@ interface TradingPanelProps {
 }
 
 const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
-  const { balance } = useAuth();
+  const { balance, fetchBalance } = useAuth();
   const [orderType, setOrderType] = useState<'buy' | 'sell'>('buy');
   const [volume, setVolume] = useState('0.01');
   const [takeProfit, setTakeProfit] = useState('');
@@ -18,6 +18,47 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
   const [leverage, setLeverage] = useState(1);
   const [openOrders, setOpenOrders] = useState<any[]>([]);
   const [closedOrders, setClosedOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchOpenOrders = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/trade/open`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Fetched orders:', data);
+          setOpenOrders(data.orders);
+        }
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+      }
+    }
+
+    const fetchClosedOrders = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/trade/closed`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Fetched closed orders:', data);
+          setClosedOrders(data.orders);
+        }
+      }
+
+      catch (err) {
+        console.error('Error fetching closed orders:', err);
+      }
+    }
+
+    fetchOpenOrders();
+    fetchClosedOrders();
+  },[])
 
   const formatPrice = (price: number) => {
   // if (!selectedInstrument) return price.toFixed(3);
@@ -42,7 +83,16 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
     : selectedInstrument ? Number(selectedInstrument.sellPrice) * parseFloat(volume) / leverage : 0;
   
   const handlePlaceOrder = async() => {
-    
+    console.log("Placing order", {
+      type: "market",
+      side: orderType,
+      leverage: leverage,
+      QTY: parseFloat(volume),
+      TP: orderType === 'buy' ? parseFloat(takeProfit) : undefined,
+      SL: orderType === 'buy' ? parseFloat(stopLoss) : undefined,
+      market: selectedInstrument?.symbol || '',
+    });
+
     try {
       const data = {
         type: "market",
@@ -70,6 +120,8 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
         setTakeProfit('');
         setStopLoss('');
         setOpenOrders(prev => [...prev, data]);
+
+        await fetchBalance();
         
       }
     } catch (err) {
@@ -175,7 +227,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               placeholder="Not set"
               className="w-full bg-[#1a1f26] border border-[#2a3441] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-[#ff6b00] transition-colors"
             />
-            {selectedInstrument && takeProfit && orderType === 'buy' && Number(takeProfit) > Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be more than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && takeProfit && orderType === 'buy' && Number(takeProfit) < Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Min {selectedInstrument.sellPrice}</div>}
             {selectedInstrument && takeProfit && orderType === 'sell' && Number(takeProfit) < Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Take Profit should be more than {selectedInstrument.buyPrice}</div>}
           </div>
 
@@ -187,7 +239,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
               placeholder="Not set"
               className="w-full bg-[#1a1f26] border border-[#2a3441] rounded-lg px-3 py-2 text-white font-mono focus:outline-none focus:border-[#ff6b00] transition-colors"
             />
-            {selectedInstrument && stopLoss && orderType === "buy" && Number(stopLoss) < Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be more than {selectedInstrument.sellPrice}</div>}
+            {selectedInstrument && stopLoss && orderType === "buy" && Number(stopLoss) > Number(selectedInstrument.sellPrice) && <div className="text-red-500 text-xs mt-1">Max {selectedInstrument.sellPrice}</div>}
             {selectedInstrument && stopLoss && orderType === "sell" && Number(stopLoss) > Number(selectedInstrument.buyPrice) && <div className="text-red-500 text-xs mt-1">Stop Loss should be less than {selectedInstrument.buyPrice}</div>}
           </div>
 
@@ -210,7 +262,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
             <div className="text-xs text-gray-400 font-medium mb-2">Order Details</div>
             <div className="flex justify-between text-xs">
               <span className="text-gray-400">Margin Required:</span>
-              <span className="text-white font-mono">{marginRequired} USD</span>
+              <span className="text-white font-mono">{marginRequired.toFixed(2)} USD</span>
             </div>
             {/* <div className="flex justify-between text-xs">
               <span className="text-gray-400">Leverage:</span>
@@ -223,12 +275,30 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
           </div>
 
           <button
-            className={`w-full py-3 rounded-lg font-bold text-white transition-colors ${
+            className={`w-full py-3 rounded-lg font-bold text-white disabled:bg-gray-600 transition-colors ${
               orderType === 'buy' 
                 ? 'bg-green-500 hover:bg-green-600' 
                 : 'bg-red-500 hover:bg-red-600'
               }`}
-            disabled={!selectedInstrument || marginRequired > balance  ||  Number(takeProfit) > Number(selectedInstrument.sellPrice) || Number(stopLoss) < Number(selectedInstrument.sellPrice) }
+              disabled={
+                !selectedInstrument ||
+                marginRequired > (balance/100) ||
+                (
+                  orderType === "buy" &&
+                  (
+                    (!!takeProfit && Number(takeProfit) <= Number(selectedInstrument.buyPrice)) ||
+                    (!!stopLoss && Number(stopLoss) >= Number(selectedInstrument.buyPrice))
+                  )
+                ) ||
+                (
+                  orderType === "sell" &&
+                  (
+                    (!!takeProfit && Number(takeProfit) >= Number(selectedInstrument.sellPrice)) ||
+                    (!!stopLoss && Number(stopLoss) <= Number(selectedInstrument.sellPrice))
+                  )
+                )
+              }
+              
             onClick={handlePlaceOrder}
           >
             {orderType === 'buy' ? 'BUY' : 'SELL'} {volume} lots
@@ -273,7 +343,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
                     </div>
                   </div>
                   <div className="text-xs text-gray-400 mb-1">Market: {order.market}</div>
-                  <div className="text-xs text-gray-400">TP: {order.T || 'N/A'} | SL: {order.SL || 'N/A'}</div>
+                  <div className="text-xs text-gray-400">TP: {order.TP || 'N/A'} | SL: {order.SL || 'N/A'}</div>
                 </div>
               ))}
             </div>

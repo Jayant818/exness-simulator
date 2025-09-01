@@ -30,7 +30,7 @@ assetRouter.get("/", async (req, res) => {
         `trade:${asset.symbol.toLowerCase()}`
       );
 
-      console.log("Trade data for", asset.symbol.toLowerCase(), tradeData);
+      // console.log("Trade data for", asset.symbol.toLowerCase(), tradeData);
 
       if (!tradeData) {
         return;
