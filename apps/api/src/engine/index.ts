@@ -3,7 +3,10 @@ import { IClosedOrderRes, IOpenOrderRes } from "../routes/trade.js";
 import { Heap } from "heap-js";
 import * as crypto from "crypto";
 
-const SCALE = 100;
+// SCALE: price / USD amounts are stored as integers scaled by SCALE.
+// Quantity (QTY) is treated as a float (not scaled). When combining price * qty,
+// you get a scaled integer amount (priceScaled * qty => scaledAmount).
+const SCALE = 100; // cents
 export const p = (x: number | string) => Math.round(Number(x) * SCALE);
 export const u = (x: number | string) => Number(x) / SCALE;
 
@@ -26,6 +29,17 @@ export interface CLOSED_ORDERS extends IClosedOrderRes {
   userId: string;
 }
 
+/**
+ * Engine: manages order placement, open orders, and liquidation triggers.
+ * - Spot buys/sells (leverage = 1)
+ * - Leveraged longs/shorts (leverage > 1)
+ *
+ * Assumptions & conventions:
+ * - Prices stored as scaled integers (p())
+ * - QTY is decimal (e.g., 0.12 ETH)
+ * - Margins and balances are scaled integers
+ * - When locking balance we always use scaled amount
+ */
 export class Engine {
   private static PENDING_ORDERS = new Map<string, OPEN_ORDERS>();
 
@@ -56,7 +70,7 @@ export class Engine {
     return {
       ...raw,
       balance,
-      assets: raw.assets ? JSON.parse(raw.assets) : {}, // { market: { side, qty, leverage, entryPrice, margin } }
+      assets: raw.assets ? JSON.parse(raw.assets) : {},
       borrowedAssets: raw.borrowedAssets ? JSON.parse(raw.borrowedAssets) : {},
     };
   }
@@ -80,11 +94,12 @@ export class Engine {
     await redis.hSet(userId, next);
   }
 
+  // lock scaledAmount (integer) from usd -> locked_usd
   public static async LockBalance({
     userId,
     amountToLock,
   }: {
-    amountToLock: number;
+    amountToLock: number; // scaled integer
     userId: string;
   }) {
     const user = await this.getUserData(userId);
@@ -103,21 +118,38 @@ export class Engine {
     await this.updateUserData(userId, { balance: newBal });
   }
 
+  // release locked amount back to usd
+  public static async ReleaseLocked({
+    userId,
+    amount,
+  }: {
+    userId: string;
+    amount: number;
+  }) {
+    const user = await this.getUserData(userId);
+    const bal = user.balance as Balance;
+    const release = Math.min(bal.locked_usd, amount);
+    const newBal: Balance = {
+      ...bal,
+      locked_usd: bal.locked_usd - release,
+      usd: bal.usd + release,
+    };
+    await this.updateUserData(userId, { balance: newBal });
+  }
+
   public static async process(data: {
     type: "market" | "limit";
     side: "buy" | "sell";
-    QTY: number;
-    TP?: number;
-    SL?: number;
-    market: string;
+    QTY: number; // decimal
+    TP?: number; // raw price
+    SL?: number; // raw price
+    market: string; // e.g., SOLUSDT
     balance: string;
     userId: string;
     leverage: number; // 1 means spot/no-leverage
   }) {
     const market = data.market.toLowerCase();
-    console.log("Processing order for market:", market);
     const tradeData = await redis.get(`trade:${market}`);
-    console.log("tradeData", tradeData);
     if (!tradeData) {
       throw new Error("Market data not found");
     }
@@ -133,139 +165,134 @@ export class Engine {
     if (leverageUsed <= 0 || leverageUsed > 40)
       throw new Error("Invalid leverage");
 
-    // Decide whether we need to lock USD margin:
-    // - BUY (spot or leveraged) -> lock USD (full notional if leverage=1, else margin)
-    // - SELL spot (leverage=1) -> no USD lock; require asset qty available
-    // - SELL leveraged (leverage>1) -> lock USD margin similar to buy leveraged
-    let amountToLock = 0;
-    if (data.side === "buy") {
-      amountToLock =
-        leverageUsed > 1
-          ? Math.floor((data.QTY * sellPriceScaled) / leverageUsed)
-          : data.QTY * sellPriceScaled;
+    // Decide how much to lock up-front (in scaled units)
+    // For BUY (long): lock margin = notional / leverage
+    // For SELL (short): if spot (leverage=1) ensure user asset qty; if leveraged, lock margin similar to buy
+    let amountToLockScaled = 0;
 
-      await this.LockBalance({ userId: data.userId, amountToLock });
+    const qty = Number(data.QTY);
+    if (qty <= 0) throw new Error("Quantity must be > 0");
+
+    if (data.side === "buy") {
+      const notionalScaled = Math.floor(qty * sellPriceScaled); // scaled
+      amountToLockScaled =
+        leverageUsed > 1
+          ? Math.floor(notionalScaled / leverageUsed)
+          : notionalScaled;
+      // lock margin (this will throw if insufficient)
+      await this.LockBalance({
+        userId: data.userId,
+        amountToLock: amountToLockScaled,
+      });
     } else {
       // sell
-      if (leverageUsed > 1) {
-        // short with margin: lock USD margin computed using sell price (we'll use sellPriceScaled)
-        amountToLock = Math.floor((data.QTY * buyPriceScaled) / leverageUsed);
-        await this.LockBalance({ userId: data.userId, amountToLock });
-      } else {
-        // spot sell: ensure user has enough asset quantity (no USD lock)
+      if (leverageUsed === 1) {
+        // spot sell -> ensure user owns asset
         const assets = user.assets || {};
-        const holding = assets[data.market]?.qty || 0;
-        if (holding < data.QTY) {
+        const holding = assets[market]?.qty || 0;
+        if (holding < qty) {
           throw new Error("Insufficient asset balance for sell");
         }
+        amountToLockScaled = 0; // nothing to lock in USD
+      } else {
+        // leveraged short -> lock margin based on buy price
+        const notionalScaled = Math.floor(qty * buyPriceScaled);
+        amountToLockScaled = Math.floor(notionalScaled / leverageUsed);
+        await this.LockBalance({
+          userId: data.userId,
+          amountToLock: amountToLockScaled,
+        });
       }
     }
 
-    // reload user after lock (if lock happened)
+    // reload user after lock
     user = await this.getUserData(data.userId);
     bal = user.balance as Balance;
 
     const orderId = crypto.randomUUID();
 
+    // Helper to register order in maps
+    const registerOpenOrder = (order: OPEN_ORDERS) => {
+      this.OPEN_ORDERS.set(order.orderId, order);
+      if (!this.userOrderMap.has(order.userId))
+        this.userOrderMap.set(order.userId, new Set());
+      this.userOrderMap.get(order.userId)!.add(order.orderId);
+    };
+
     /** ---------- BUY (LONG) ---------- */
     if (data.side === "buy") {
       // MARKET & NO LEVERAGE => immediate spot buy
       if (data.type === "market" && leverageUsed === 1) {
-        this.OPEN_ORDERS.set(orderId, {
+        const notionalScaled = Math.floor(qty * sellPriceScaled);
+
+        const order: OPEN_ORDERS = {
           orderId,
           type: "market",
           side: "buy",
-          QTY: data.QTY,
+          QTY: qty,
           TP: data.TP !== undefined ? p(data.TP) : undefined,
           SL: data.SL !== undefined ? p(data.SL) : undefined,
           userId: data.userId,
           market: data.market,
           createdAt: new Date().toISOString(),
           openPrice: sellPriceScaled,
-        });
+        } as OPEN_ORDERS;
 
-        if (!this.userOrderMap.has(data.userId))
-          this.userOrderMap.set(data.userId, new Set());
-        this.userOrderMap.get(data.userId)!.add(orderId);
+        registerOpenOrder(order);
 
-        console.log("this.OPEN_ORDERS", this.OPEN_ORDERS);
-
+        // push TP/SL
         if (data.SL !== undefined && data.SL > 0) {
-          if (!this.stopLossLongMap.has(data.market))
+          if (!this.stopLossLongMap.has(market))
             this.stopLossLongMap.set(
-              data.market,
+              market,
               new Heap<HeapNode>((a, b) => a.price - b.price)
             );
           this.stopLossLongMap
-            .get(data.market)!
+            .get(market)!
             .push({ orderId, price: p(data.SL) });
         }
         if (data.TP !== undefined && data.TP > 0) {
-          if (!this.takeProfitLongMap.has(data.market))
+          if (!this.takeProfitLongMap.has(market))
             this.takeProfitLongMap.set(
-              data.market,
+              market,
               new Heap<HeapNode>((a, b) => b.price - a.price)
             );
           this.takeProfitLongMap
-            .get(data.market)!
+            .get(market)!
             .push({ orderId, price: p(data.TP) });
         }
 
         // consume locked USD -> credit assets
+        // we locked notionalScaled earlier; now consume it from locked_usd
         const newBal: Balance = {
           ...bal,
-          locked_usd: bal.locked_usd - data.QTY * sellPriceScaled,
+          locked_usd: bal.locked_usd - notionalScaled,
         };
 
         const assets = user.assets || {};
-        assets[data.market] = {
+        assets[market] = {
           side: "long",
-          qty: (assets[data.market]?.qty || 0) + data.QTY,
+          qty: (assets[market]?.qty || 0) + qty,
           leverage: 1,
+          entryPrice: sellPriceScaled,
         };
 
         await this.updateUserData(data.userId, { balance: newBal, assets });
         return orderId;
       }
 
-      // LIMIT no-leverage -> pending
-      // TODO: logic is incorrect maybe
-      // if (data.type === "limit" && leverageUsed === 1) {
-      //   this.PENDING_ORDERS.set(orderId, {
-      //     orderId,
-      //     type: "limit",
-      //     side: "buy",
-      //     QTY: data.QTY,
-      //     TP: data.TP !== undefined ? p(data.TP) : undefined,
-      //     SL: data.SL !== undefined ? p(data.SL) : undefined,
-      //     userId: data.userId,
-      //     market: data.market,
-      //     createdAt: new Date().toISOString(),
-      //     openPrice: buyPriceScaled,
-      //   });
-      //   if (!this.userOrderMap.has(data.userId))
-      //     this.userOrderMap.set(data.userId, new Set());
-      //   this.userOrderMap.get(data.userId)!.add(orderId);
-
-      //   const newBal: Balance = {
-      //     ...bal,
-      //     locked_usd: bal.locked_usd - data.QTY * buyPriceScaled,
-      //   };
-      //   await this.updateUserData(data.userId, { balance: newBal });
-      //   return orderId;
-      // }
-
       // MARKET leveraged long
       if (data.type === "market" && leverageUsed > 1) {
-        const totalQty = Number(data.QTY) || 0;
-        if (!totalQty) throw new Error("Invalid qty");
+        const totalQty = qty;
+        const notionalScaled = Math.floor(totalQty * sellPriceScaled);
+        const margin = Math.floor(notionalScaled / leverageUsed); // scaled
 
-        const borrowedAmount = totalQty * sellPriceScaled;
-        const margin = Math.floor(borrowedAmount / leverageUsed);
-        if (margin > bal.usd + bal.locked_usd)
-          throw new Error("Insufficient margin");
+        if (margin > (bal.locked_usd || 0)) {
+          // this should not happen because LockBalance was invoked earlier; just guard
+          throw new Error("Insufficient margin after lock");
+        }
 
-        this.OPEN_ORDERS.set(orderId, {
+        const order: OPEN_ORDERS = {
           market: data.market,
           openPrice: sellPriceScaled,
           orderId,
@@ -278,106 +305,74 @@ export class Engine {
           userId: data.userId,
           TP: data.TP !== undefined ? p(data.TP) : undefined,
           createdAt: new Date().toISOString(),
-        });
-        if (!this.userOrderMap.has(data.userId))
-          this.userOrderMap.set(data.userId, new Set());
-        this.userOrderMap.get(data.userId)!.add(orderId);
+        } as OPEN_ORDERS;
+
+        registerOpenOrder(order);
 
         if (data.SL !== undefined && data.SL > 0) {
-          if (!this.stopLossLongMap.has(data.market))
+          if (!this.stopLossLongMap.has(market))
             this.stopLossLongMap.set(
-              data.market,
+              market,
               new Heap<HeapNode>((a, b) => a.price - b.price)
             );
           this.stopLossLongMap
-            .get(data.market)!
+            .get(market)!
             .push({ orderId, price: p(data.SL) });
         }
         if (data.TP !== undefined && data.TP > 0) {
-          if (!this.takeProfitLongMap.has(data.market))
+          if (!this.takeProfitLongMap.has(market))
             this.takeProfitLongMap.set(
-              data.market,
+              market,
               new Heap<HeapNode>((a, b) => b.price - a.price)
             );
           this.takeProfitLongMap
-            .get(data.market)!
+            .get(market)!
             .push({ orderId, price: p(data.TP) });
         }
 
-        if (!this.leveragedLongMap.has(data.market))
+        if (!this.leveragedLongMap.has(market))
           this.leveragedLongMap.set(
-            data.market,
+            market,
             new Heap<HeapNode>((a, b) => b.price - a.price)
           );
         this.leveragedLongMap
-          .get(data.market)!
+          .get(market)!
           .push({ orderId, price: sellPriceScaled });
 
-        // TODO : It will throw error if we we buy and sell for same market
+        // Update borrowedAssets: we consider treasury/lending handled elsewhere.
         const borrowedAssets = user.borrowedAssets || {};
-        borrowedAssets[data.market] = {
+        borrowedAssets[market] = {
           side: "long",
-          qty: totalQty + (borrowedAssets[data.market]?.qty || 0),
+          qty: totalQty + (borrowedAssets[market]?.qty || 0),
           leverage: leverageUsed,
           entryPrice: sellPriceScaled,
         };
 
-        await this.updateUserData(data.userId, { borrowedAssets });
+        // consume margin from locked_usd (it was reserved earlier)
+        const newBal: Balance = {
+          ...bal,
+          locked_usd: bal.locked_usd - margin,
+        };
+
+        await this.updateUserData(data.userId, {
+          borrowedAssets,
+          balance: newBal,
+        });
         return orderId;
       }
 
-      // LIMIT leveraged long -> pending
-      // if (data.type === "limit" && leverageUsed > 1) {
-      //   const totalQty = Number(data.QTY) || 0;
-      //   if (!totalQty) throw new Error("Invalid qty");
-
-      //   const borrowedAmount = totalQty * buyPriceScaled;
-      //   const margin = Math.floor(borrowedAmount / leverageUsed);
-      //   if (margin > bal.usd + bal.locked_usd)
-      //     throw new Error("Insufficient margin");
-
-      //   this.PENDING_ORDERS.set(orderId, {
-      //     orderId,
-      //     type: "limit",
-      //     side: "buy",
-      //     QTY: totalQty,
-      //     TP: data.TP !== undefined ? p(data.TP) : undefined,
-      //     userId: data.userId,
-      //     SL: data.SL !== undefined ? p(data.SL) : undefined,
-      //     market: data.market,
-      //     createdAt: new Date().toISOString(),
-      //     openPrice: buyPriceScaled,
-      //   });
-      //   if (!this.userOrderMap.has(data.userId))
-      //     this.userOrderMap.set(data.userId, new Set());
-      //   this.userOrderMap.get(data.userId)!.add(orderId);
-
-      //   const assets = user.assets || {};
-      //   assets[data.market] = {
-      //     side: "long",
-      //     qty: totalQty,
-      //     leverage: leverageUsed,
-      //     entryPrice: buyPriceScaled,
-      //     margin,
-      //   };
-
-      //   await this.updateUserData(data.userId, { assets });
-      //   return orderId;
-      // }
+      // LIMIT order handling left as pending (not implemented here)
     }
 
     /** ---------- SELL (SHORT) ---------- */
     if (data.side === "sell") {
+      // Market order handling (spot sell or leveraged short)
       if (data.type === "market") {
-        if (!data.QTY || data.QTY <= 0)
-          throw new Error("Quantity must be greater than zero");
-
-        // create order record (entry price is sellPriceScaled)
-        this.OPEN_ORDERS.set(orderId, {
+        const order: OPEN_ORDERS = {
           orderId,
           type: "market",
           side: "sell",
-          QTY: data.QTY,
+          QTY: qty,
           TP: data.TP !== undefined ? p(data.TP) : undefined,
           SL: data.SL !== undefined ? p(data.SL) : undefined,
           userId: data.userId,
@@ -387,76 +382,73 @@ export class Engine {
           leverage: leverageUsed,
           margin:
             leverageUsed > 1
-              ? Math.floor((data.QTY * buyPriceScaled) / leverageUsed)
-              : data.QTY * buyPriceScaled,
-        });
+              ? Math.floor((qty * buyPriceScaled) / leverageUsed)
+              : undefined,
+        } as OPEN_ORDERS;
 
-        if (!this.userOrderMap.has(data.userId))
-          this.userOrderMap.set(data.userId, new Set());
-        this.userOrderMap.get(data.userId)!.add(orderId);
+        registerOpenOrder(order);
 
         // STOP LOSS for shorts -> max-heap
         if (data.SL !== undefined && data.SL > 0) {
-          if (!this.stopLossShortMap.has(data.market))
+          if (!this.stopLossShortMap.has(market))
             this.stopLossShortMap.set(
-              data.market,
+              market,
               new Heap<HeapNode>((a, b) => b.price - a.price)
             );
           this.stopLossShortMap
-            .get(data.market)!
+            .get(market)!
             .push({ orderId, price: p(data.SL) });
         }
-        // TAKE PROFIT for shorts -> max-heap (we pop highest TP first as price falls)
+        // TAKE PROFIT for shorts -> max-heap
         if (data.TP !== undefined && data.TP > 0) {
-          if (!this.takeProfitShortMap.has(data.market))
+          if (!this.takeProfitShortMap.has(market))
             this.takeProfitShortMap.set(
-              data.market,
+              market,
               new Heap<HeapNode>((a, b) => b.price - a.price)
             );
           this.takeProfitShortMap
-            .get(data.market)!
+            .get(market)!
             .push({ orderId, price: p(data.TP) });
         }
 
-        // leveraged short storage
-        if (!this.leveragedShortMap.has(data.market))
+        if (!this.leveragedShortMap.has(market))
           this.leveragedShortMap.set(
-            data.market,
+            market,
             new Heap<HeapNode>((a, b) => b.price - a.price)
           );
         this.leveragedShortMap
-          .get(data.market)!
+          .get(market)!
           .push({ orderId, price: buyPriceScaled });
 
-        // now settle depending on leverage or spot:
+        // settle depending on leverage or spot:
         const assets = user.assets || {};
-        const borrowedAssets: Record<string, number> =
-          user.borrowedAssets || {};
+        const borrowedAssets: Record<string, any> = user.borrowedAssets || {};
         const balanceAfter = { ...user.balance } as Balance;
 
         if (leverageUsed === 1) {
-          // SPOT SELL: user must own asset (we validated earlier)
-          // Deduct asset and credit USD immediately (no margin)
-          assets[data.market] = {
-            side: assets[data.market]?.side || "long",
-            qty: (assets[data.market]?.qty || 0) - data.QTY,
+          // SPOT SELL: user must own asset (validated earlier). Deduct asset and credit USD immediately
+          assets[market] = {
+            side: assets[market]?.side || "long",
+            qty: (assets[market]?.qty || 0) - qty,
             leverage: 1,
-            entryPrice: assets[data.market]?.entryPrice || buyPriceScaled,
-            margin: Math.max(
-              0,
-              (assets[data.market]?.margin || 0) - data.QTY * buyPriceScaled
-            ),
+            entryPrice: assets[market]?.entryPrice || buyPriceScaled,
           };
 
-          balanceAfter.usd =
-            (balanceAfter.usd || 0) + data.QTY * buyPriceScaled;
-          // no locked_usd change because we didn't lock USD for sells
+          const credit = Math.floor(qty * buyPriceScaled);
+          balanceAfter.usd = (balanceAfter.usd || 0) + credit;
+          // no locked_usd change for spot sell
         } else {
-          // LEVERAGED SHORT: we recorded margin earlier by LockBalance (USD locked)
-          // At execution, user is short: update borrowedAssets and leave margin logic to risk/positions
-          borrowedAssets[data.market] =
-            (borrowedAssets[data.market] || 0) + data.QTY;
-          // positions / assets will be handled via assets/positions field as needed
+          // LEVERAGED SHORT: we recorded margin earlier by LockBalance
+          // At execution, user is short: update borrowedAssets and consume margin from locked_usd
+          borrowedAssets[market] = {
+            side: "short",
+            qty: (borrowedAssets[market]?.qty || 0) + qty,
+            leverage: leverageUsed,
+            entryPrice: buyPriceScaled,
+          };
+
+          const margin = Math.floor((qty * buyPriceScaled) / leverageUsed);
+          balanceAfter.locked_usd = (balanceAfter.locked_usd || 0) - margin;
         }
 
         await this.updateUserData(data.userId, {
