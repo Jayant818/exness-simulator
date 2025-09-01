@@ -25,7 +25,7 @@ const WebTradingPageWrapper = () => {
     })
   },[])
   
-  if (!isAuthenticated) { 
+  if (!isAuthenticated && window) { 
     window.location.href = '/login';
     return;
   }

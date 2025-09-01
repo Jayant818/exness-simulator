@@ -4,8 +4,8 @@ import { Heap } from "heap-js";
 import * as crypto from "crypto";
 
 const SCALE = 100;
-const p = (x: number | string) => Math.round(Number(x) * SCALE);
-const u = (x: number | string) => Number(x) / SCALE;
+export const p = (x: number | string) => Math.round(Number(x) * SCALE);
+export const u = (x: number | string) => Number(x) / SCALE;
 
 interface HeapNode {
   orderId: string;
@@ -185,7 +185,7 @@ export class Engine {
         console.log("Buy order", data);
         console.log("this.OPEN_ORDERS", this.OPEN_ORDERS);
 
-        if (data.SL !== undefined) {
+        if (data.SL !== undefined && data.SL > 0) {
           if (!this.stopLossLongMap.has(data.market))
             this.stopLossLongMap.set(
               data.market,
@@ -195,7 +195,7 @@ export class Engine {
             .get(data.market)!
             .push({ orderId, price: p(data.SL) });
         }
-        if (data.TP !== undefined) {
+        if (data.TP !== undefined && data.TP > 0) {
           if (!this.takeProfitLongMap.has(data.market))
             this.takeProfitLongMap.set(
               data.market,
@@ -280,7 +280,7 @@ export class Engine {
           this.userOrderMap.set(data.userId, new Set());
         this.userOrderMap.get(data.userId)!.add(orderId);
 
-        if (data.SL !== undefined) {
+        if (data.SL !== undefined && data.SL > 0) {
           if (!this.stopLossLongMap.has(data.market))
             this.stopLossLongMap.set(
               data.market,
@@ -290,7 +290,7 @@ export class Engine {
             .get(data.market)!
             .push({ orderId, price: p(data.SL) });
         }
-        if (data.TP !== undefined) {
+        if (data.TP !== undefined && data.TP > 0) {
           if (!this.takeProfitLongMap.has(data.market))
             this.takeProfitLongMap.set(
               data.market,
@@ -394,7 +394,7 @@ export class Engine {
         this.userOrderMap.get(data.userId)!.add(orderId);
 
         // STOP LOSS for shorts -> max-heap
-        if (data.SL !== undefined) {
+        if (data.SL !== undefined && data.SL > 0) {
           if (!this.stopLossShortMap.has(data.market))
             this.stopLossShortMap.set(
               data.market,
@@ -405,7 +405,7 @@ export class Engine {
             .push({ orderId, price: p(data.SL) });
         }
         // TAKE PROFIT for shorts -> max-heap (we pop highest TP first as price falls)
-        if (data.TP !== undefined) {
+        if (data.TP !== undefined && data.TP > 0) {
           if (!this.takeProfitShortMap.has(data.market))
             this.takeProfitShortMap.set(
               data.market,

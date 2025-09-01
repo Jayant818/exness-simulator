@@ -287,7 +287,7 @@ const TradingPanel = ({ selectedInstrument }: TradingPanelProps) => {
                   orderType === "buy" &&
                   (
                     (!!takeProfit && Number(takeProfit) <= Number(selectedInstrument.buyPrice)) ||
-                    (!!stopLoss && Number(stopLoss) >= Number(selectedInstrument.buyPrice))
+                    (!!stopLoss && Number(stopLoss) > Number(selectedInstrument.buyPrice))
                   )
                 ) ||
                 (

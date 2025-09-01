@@ -129,9 +129,9 @@ tradeRouter.post("/", authMiddleware, async (req: AuthRequest, res) => {
 
 // Get open orders
 
-tradeRouter.get("/open", async (req, res) => {
-  // Get userId =
-  const userId = "abcd";
+tradeRouter.get("/open", authMiddleware, async (req: AuthRequest, res) => {
+  // Get userId from the request
+  const userId = req.userId;
 
   if (!userId) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -147,8 +147,8 @@ tradeRouter.get("/open", async (req, res) => {
 });
 
 // Get Existing Closed Orders
-tradeRouter.get("/closed", async (req, res) => {
-  const userId = "abcd";
+tradeRouter.get("/closed", authMiddleware, async (req: AuthRequest, res) => {
+  const userId = req.userId;
 
   if (!userId) {
     return res.status(401).json({ message: "Unauthorized" });

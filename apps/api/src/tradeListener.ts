@@ -98,15 +98,19 @@ async function startTradeListening() {
     const key = `trade:${data.market.toLowerCase()}`;
     await redis.hSet(key, data);
 
-    const { market, buy: buyPrice, sell: sellPrice } = data;
+    const { market, buy, sell } = data;
+    let buyPrice = p(buy);
+    let sellPrice = p(sell);
 
     /** ---------- STOP LOSS (LONG) ---------- */
     const stopLossLongHeap = Engine.stopLossLongMap.get(market);
     if (stopLossLongHeap) {
-      console.log("Processing stop loss long orders for", market);
+      // console.log("Processing stop loss long orders for", market);
       while (stopLossLongHeap.size() > 0) {
         const top = stopLossLongHeap.peek();
         if (!top) break;
+        console.log("Top SL Long:", top);
+        console.log("Current Buy Price:", buyPrice);
         if (buyPrice > top.price) break; // trigger only if current <= stopLoss
         const { orderId } = stopLossLongHeap.pop()!;
         const order = Engine.OPEN_ORDERS.get(orderId);
@@ -121,7 +125,7 @@ async function startTradeListening() {
     const takeProfitLongHeap = Engine.takeProfitLongMap.get(market);
 
     if (takeProfitLongHeap) {
-      console.log("Processing take profit long orders for", market);
+      // console.log("Processing take profit long orders for", market);
 
       while (takeProfitLongHeap.size() > 0) {
         const top = takeProfitLongHeap.peek();
@@ -139,7 +143,7 @@ async function startTradeListening() {
     /** ---------- LEVERAGED LONG ---------- */
     const leveragedLongHeap = Engine.leveragedLongMap.get(market);
     if (leveragedLongHeap) {
-      console.log("Processing leveraged long orders for", market);
+      // console.log("Processing leveraged long orders for", market);
       while (leveragedLongHeap.size() > 0) {
         const top = leveragedLongHeap.peek();
         if (!top) break;
@@ -155,7 +159,7 @@ async function startTradeListening() {
     /** ---------- STOP LOSS (SHORT) ---------- */
     const stopLossShortHeap = Engine.stopLossShortMap.get(market);
     if (stopLossShortHeap) {
-      console.log("Processing stop loss short orders for", market);
+      // console.log("Processing stop loss short orders for", market);
       while (stopLossShortHeap.size() > 0) {
         const top = stopLossShortHeap.peek();
         if (!top) break;
