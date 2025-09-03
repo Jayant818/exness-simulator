@@ -1,5 +1,3 @@
-import { TradingInstrument } from "../types/index.js";
-
 export const POLLING_ENGINE_EVENT_CHANNEL = "polling-channel-for-events";
 
 export const BINANCE_WS_URL = "wss://stream.binance.com:9443/stream?streams=";
@@ -14,3 +12,5 @@ export const MARKET_TRADE_CHANNELS = "market_trade_channels";
 export const SIMULATOR_MARGIN = 5; //5% margin
 
 export const TRADE_KEY = "trade_key";
+
+export const MESSAGE_QUEUE = "email_queue";

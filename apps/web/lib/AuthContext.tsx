@@ -77,9 +77,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.ok) {
         const data = await res.json();
         setUser({ id: data.userId, username: data.username, balance: parseFloat(data.balance.usd) });
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_SERVER}/api/v1/system/restart-polling`, {
+            method: 'POST',
+            
+          })
+        }
+        catch (error) { 
+          console.error('Failed to restart polling:', error);
+        }
       }
       setIsAuthenticated(true);
       fetchUserBalance();
+
+      // start the Polling when someone starts the session
+
     } catch (error) {
       console.error('Failed to login:', error);
     }

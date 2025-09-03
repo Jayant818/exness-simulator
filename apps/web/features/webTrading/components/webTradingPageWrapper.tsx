@@ -52,7 +52,7 @@ async function fetchAssets() {
   
 
   return (
-    <div className="trading-layout flex flex-col h-screen">
+    <div className="trading-layout flex flex-col ">
       {/* <TradingHeader /> */}
       
       <div className="flex-1 flex overflow-hidden">

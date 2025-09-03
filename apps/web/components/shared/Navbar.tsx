@@ -9,7 +9,7 @@ const Navbar = () => {
   const { user, isAuthenticated, logout, balance } = useAuth();
   console.log({user, isAuthenticated, balance});
   return (
-    <div className='w-full flex justify-between items-center p-6 border-b border-[#2a3441] bg-[#141920]'>
+    <div className='w-full flex justify-between items-center p-6 border-b border-[#2a3441] bg-[#141920] h-[7%]'>
       <Link href="/" className="flex items-center space-x-3">
         <div className="w-10 h-10 bg-[#ff6b00] rounded-lg flex items-center justify-center">
           <TrendingUp className="text-white" size={24} />

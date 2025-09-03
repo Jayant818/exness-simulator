@@ -52,7 +52,7 @@
 
 /* Trading Layout */
 .trading-layout {
-  height: 100vh;
+  height: 100%;
   background: var(--trading-bg-primary);
   color: var(--trading-text-primary);
 }

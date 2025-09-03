@@ -28,7 +28,7 @@ export default function RootLayout({
         <body className={`${geistSans.variable} ${geistMono.variable} bg-[#0a0e13] h-screen`}>
         <AuthProvider>
           <Navbar/>
-          <main className="h-full">
+          <main className="h-[93%]">
             {children}
           </main>
         </AuthProvider>

@@ -95,7 +95,7 @@ const TradeChart = ({ market }: { market: string }) => {
       <div ref={chartRef} className="w-full h-full" />
       
       {/* Chart Controls */}
-      <div className="absolute bottom-4 left-4 z-10 bg-[#141920]/90 backdrop-blur-sm rounded-lg p-2 border border-[#2a3441]">
+      <div className="absolute  bottom-7 left-4 z-10 bg-[#141920]/90 backdrop-blur-sm rounded-lg p-2 border border-[#2a3441]">
         <div className="flex items-center space-x-2">
           {['1m', '5m', '1h', '1d'].map((timeframe) => (
             <button

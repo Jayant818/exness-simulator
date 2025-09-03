@@ -1,6 +1,7 @@
 import PrismaClient from "@repo/primary-db";
 import { redis, subscriber } from "@repo/shared-redis";
 import { Engine, OPEN_ORDERS, p, u } from "./engine/index.js";
+import {  MESSAGE_QUEUE } from "@repo/common";
 
 async function liquidateOrder(
   order: OPEN_ORDERS,
@@ -88,6 +89,19 @@ async function liquidateOrder(
     closePrice,
     pnl: u(pnlScaled),
   });
+
+  redis.lPush(
+    MESSAGE_QUEUE,
+    JSON.stringify({
+      message: {
+        subject: `Order ${order.orderId} closed`,
+        html: `Your order ${order.orderId} for ${order.market} (${order.side}) has been closed at price ${u(
+          closePrice
+        )}. PnL: ${u(pnlScaled)} USD.`,
+      },
+      to: userData.email,
+    })
+  );
 
   console.log(
     `✅ Order ${order.orderId} for ${order.market} (${order.side}) closed at ${u(closePrice)}, PnL: ${u(pnlScaled)}`

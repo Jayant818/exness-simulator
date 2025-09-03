@@ -17,6 +17,12 @@ const LoginPage = () => {
   const router = useRouter();
   const { login } = useAuth();
 
+  const { isAuthenticated } = useAuth();
+  
+  if (isAuthenticated) {
+    router.push('/webtrading');
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -51,6 +57,7 @@ const LoginPage = () => {
 
         // Redirect to trading platform
         router.push('/webtrading');
+
       } else {
         setError(data.error || 'Invalid username or password');
       }
@@ -62,7 +69,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0e13] flex items-center justify-center p-4">
+    <div className="bg-[#0a0e13] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo and Header */}
         <div className="text-center mb-8">

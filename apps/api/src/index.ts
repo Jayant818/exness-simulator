@@ -6,6 +6,7 @@ import { tradeRouter } from "./routes/trade.js";
 import { authRouter } from "./routes/auth.js";
 import { assetRouter } from "./routes/assest.js";
 import startTradeListening from "./tradeListener.js";
+import { systemRouter } from "./routes/system.js";
 
 const app = express();
 
@@ -26,6 +27,8 @@ app.use("/api/candles", candlesRouter);
 app.use("/api/v1/trade", tradeRouter);
 app.use("/api/v1/user", authRouter);
 app.use("/api/v1/assets", assetRouter);
+app.use("api/v1/system", systemRouter);
+
 
 //localhost:3002/api/auth/goggle/callback
 

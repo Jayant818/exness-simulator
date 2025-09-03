@@ -18,7 +18,11 @@ const SignupPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    router.push('/webtrading');
+  } 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -98,7 +102,7 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0e13] flex items-center justify-center p-4">
+    <div className=" bg-[#0a0e13] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo and Header */}
         <div className="text-center mb-8">
